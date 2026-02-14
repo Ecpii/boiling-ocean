@@ -1,6 +1,12 @@
-"use client"
+"use client";
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from "react"
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useCallback,
+} from "react";
 import type {
   WorkflowState,
   WorkflowStep,
@@ -9,9 +15,9 @@ import type {
   ModelResponse,
   HumanReview,
   AuditReport,
-} from "./types"
+} from "./types";
 
-const STORAGE_KEY = "ai-validation-workflow"
+const STORAGE_KEY = "ai-validation-workflow";
 
 type Action =
   | { type: "SET_STEP"; step: WorkflowStep }
@@ -28,7 +34,7 @@ type Action =
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
   | { type: "RESET" }
-  | { type: "HYDRATE"; state: WorkflowState }
+  | { type: "HYDRATE"; state: WorkflowState };
 
 const initialState: WorkflowState = {
   step: 0,
@@ -37,111 +43,113 @@ const initialState: WorkflowState = {
   responses: [],
   humanReviews: [],
   report: null,
-  isLoading: false,
-  error: null,
-}
+};
 
 function reducer(state: WorkflowState, action: Action): WorkflowState {
   switch (action.type) {
     case "SET_STEP":
-      return { ...state, step: action.step, error: null }
+      return { ...state, step: action.step };
     case "SET_MODEL_CONFIG":
-      return { ...state, modelConfig: action.config }
+      return { ...state, modelConfig: action.config };
     case "SET_QUESTIONS":
-      return { ...state, questions: action.questions }
+      return { ...state, questions: action.questions };
     case "UPDATE_QUESTION":
       return {
         ...state,
-        questions: state.questions.map((q) => (q.id === action.id ? { ...q, text: action.text } : q)),
-      }
+        questions: state.questions.map((q) =>
+          q.id === action.id ? { ...q, text: action.text } : q,
+        ),
+      };
     case "TOGGLE_QUESTION":
       return {
         ...state,
-        questions: state.questions.map((q) => (q.id === action.id ? { ...q, enabled: !q.enabled } : q)),
-      }
+        questions: state.questions.map((q) =>
+          q.id === action.id ? { ...q, enabled: !q.enabled } : q,
+        ),
+      };
     case "ADD_QUESTION":
-      return { ...state, questions: [...state.questions, action.question] }
+      return { ...state, questions: [...state.questions, action.question] };
     case "REMOVE_QUESTION":
-      return { ...state, questions: state.questions.filter((q) => q.id !== action.id) }
+      return {
+        ...state,
+        questions: state.questions.filter((q) => q.id !== action.id),
+      };
     case "SET_RESPONSES":
-      return { ...state, responses: action.responses }
+      return { ...state, responses: action.responses };
     case "ADD_RESPONSE":
-      return { ...state, responses: [...state.responses, action.response] }
+      return { ...state, responses: [...state.responses, action.response] };
     case "ADD_HUMAN_REVIEW":
       return {
         ...state,
         humanReviews: [
-          ...state.humanReviews.filter((r) => r.responseId !== action.review.responseId),
+          ...state.humanReviews.filter(
+            (r) => r.responseId !== action.review.responseId,
+          ),
           action.review,
         ],
-      }
+      };
     case "SET_REPORT":
-      return { ...state, report: action.report }
-    case "SET_LOADING":
-      return { ...state, isLoading: action.loading }
-    case "SET_ERROR":
-      return { ...state, error: action.error, isLoading: false }
+      return { ...state, report: action.report };
     case "RESET":
-      return { ...initialState }
+      return { ...initialState };
     case "HYDRATE":
-      return { ...action.state, isLoading: false, error: null }
+      return { ...action.state };
     default:
-      return state
+      return state;
   }
 }
 
 interface WorkflowContextType {
-  state: WorkflowState
-  dispatch: React.Dispatch<Action>
-  resetWorkflow: () => void
+  state: WorkflowState;
+  dispatch: React.Dispatch<Action>;
+  resetWorkflow: () => void;
 }
 
-const WorkflowContext = createContext<WorkflowContextType | null>(null)
+const WorkflowContext = createContext<WorkflowContextType | null>(null);
 
 export function WorkflowProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState)
-  const [hydrated, setHydrated] = React.useState(false)
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const [hydrated, setHydrated] = React.useState(false);
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
+      const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as WorkflowState
-        dispatch({ type: "HYDRATE", state: parsed })
+        const parsed = JSON.parse(saved) as WorkflowState;
+        dispatch({ type: "HYDRATE", state: parsed });
       }
     } catch {
       // ignore parse errors
     }
-    setHydrated(true)
-  }, [])
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     if (hydrated) {
-      const { isLoading, error, ...rest } = state
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(rest))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
-  }, [state, hydrated])
+  }, [state, hydrated]);
 
   const resetWorkflow = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    dispatch({ type: "RESET" })
-  }, [])
+    localStorage.removeItem(STORAGE_KEY);
+    dispatch({ type: "RESET" });
+  }, []);
 
   if (!hydrated) {
-    return null
+    return null;
   }
 
   return (
     <WorkflowContext.Provider value={{ state, dispatch, resetWorkflow }}>
       {children}
     </WorkflowContext.Provider>
-  )
+  );
 }
 
 export function useWorkflow() {
-  const context = useContext(WorkflowContext)
+  const context = useContext(WorkflowContext);
   if (!context) {
-    throw new Error("useWorkflow must be used within a WorkflowProvider")
+    throw new Error("useWorkflow must be used within a WorkflowProvider");
   }
-  return context
+  return context;
 }
