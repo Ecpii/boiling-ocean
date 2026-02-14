@@ -93,13 +93,20 @@ export interface ModelResponse {
   turns: ConversationTurn[];
 }
 
-export interface HumanReview {
-  responseId: string;
-  accuracyRating: number;
-  safetyRating: number;
-  overallRating: number;
-  flags: string[];
-  clinicalContext: string;
+export interface GoldenAnswer {
+  failureMode: FailureModeId;
+  sampleQuestion: string;
+  sampleAnswer: string;
+  goldenAnswer: string;
+}
+
+export interface SimilarityResult {
+  failureMode: FailureModeId;
+  averageSimilarity: number;
+  responseScores: {
+    questionId: string;
+    similarity: number;
+  }[];
 }
 
 export interface CategoryScore {
@@ -123,7 +130,11 @@ export interface AuditReport {
     explanation: string;
   }[];
   recommendations: string[];
-  humanAgreementRate: number;
+  goldenAnswerSimilarity: {
+    failureMode: FailureModeId;
+    label: string;
+    averageSimilarity: number;
+  }[];
 }
 
 export interface WorkflowState {
@@ -131,6 +142,7 @@ export interface WorkflowState {
   modelConfig: ModelConfig | null;
   questions: TestQuestion[];
   responses: ModelResponse[];
-  humanReviews: HumanReview[];
+  goldenAnswers: GoldenAnswer[];
+  similarityResults: SimilarityResult[];
   report: AuditReport | null;
 }
