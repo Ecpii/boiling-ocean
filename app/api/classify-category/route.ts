@@ -1,4 +1,5 @@
 import { generateText, Output } from "ai";
+import { getClaudeModel } from "@/lib/ai-claude";
 import { z } from "zod";
 import {
   FAILURE_MODES_BY_CATEGORY,
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
       .join("\n\n");
 
     const result = await generateText({
-      model: "anthropic/claude-sonnet-4-20250514",
+      model: getClaudeModel(),
       output: Output.object({ schema: classificationSchema }),
       system: `You are a healthcare AI safety auditor specializing in risk classification. Given a description of a healthcare AI system, you must:
 1. Classify it into exactly one of these three categories based on its primary use case and risk profile:

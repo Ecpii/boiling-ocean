@@ -55,7 +55,7 @@ All API routes are in `app/api/` and use the Vercel AI SDK:
 
 - **POST /api/generate-questions**: Uses Claude Sonnet 4 with structured output to generate 5 questions per failure mode. Takes `description` and `failureModes` array.
 
-- **POST /api/run-model**: Runs the model being tested. Takes `provider`, `modelId`, `question`, and `conversationHistory`. Uses AI SDK's `generateText()` with model string format `"provider/modelId"`.
+- **POST /api/run-model**: Runs the model being tested. Takes `provider`, `modelId`, optional `apiKey`, `question`, and `conversationHistory`. Anthropic uses apiKey (from Configure or ANTHROPIC_API_KEY env); OpenAI/Groq/xAI use Vercel AI Gateway (no personal token).
 
 - **POST /api/evaluate-responses**: Uses Claude Sonnet 4 with structured output to generate final audit report. Takes `responses`, `humanReviews`, and `description`.
 
@@ -113,6 +113,12 @@ The project uses `@/*` to reference root-level imports (configured in `tsconfig.
 import { useWorkflow } from "@/lib/workflow-context"
 import { Button } from "@/components/ui/button"
 ```
+
+## Environment (rate limits)
+
+- **ANTHROPIC_API_KEY** (optional): When set in `.env.local`, all auditor Claude calls (generate-questions, generate-sample, generate-followup, evaluate-responses, etc.) use your Anthropic key directly instead of the Vercel AI Gateway. This gives you your account’s rate limits (e.g. 4K requests/min for Claude Sonnet) and avoids Vercel free-tier 429s. Get a key at https://console.anthropic.com/
+
+OpenAI, Groq, and xAI (target models) all go through the Vercel AI Gateway; no personal API keys are used for run-model for those providers.
 
 ## Important Notes
 

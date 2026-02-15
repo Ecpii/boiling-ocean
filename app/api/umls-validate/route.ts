@@ -5,6 +5,7 @@
  */
 
 import { generateText, Output } from "ai";
+import { getClaudeModel } from "@/lib/ai-claude";
 import { z } from "zod";
 import { validateConcepts } from "@/lib/umls-client";
 
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
       }
 
       const extractResult = await generateText({
-        model: "anthropic/claude-sonnet-4-20250514",
+        model: getClaudeModel(),
         output: Output.object({ schema: extractSchema }),
         system: "You extract medical/clinical terms from text: drug names, conditions, procedures, anatomy, etc. Output a 'terms' array of distinct strings. No explanations.",
         prompt: `Extract all distinct medical/clinical terms from:\n\n${text}`,

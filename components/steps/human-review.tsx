@@ -21,8 +21,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-const SAMPLE_CONCURRENCY = 5;
-
 export function HumanReviewStep() {
   const { state, dispatch } = useWorkflow();
   const [currentModeIndex, setCurrentModeIndex] = useState(0);
@@ -33,22 +31,24 @@ export function HumanReviewStep() {
   const [sampleGenerated, setSampleGenerated] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
   const [similarityError, setSimilarityError] = useState<string | null>(null);
-  /** Cached samples per failure mode id — populated once concurrently, never re-fetched on tab switch */
+  /** Cached samples per failure mode id — populated once sequentially, never re-fetched on tab switch */
   const [sampleCache, setSampleCache] = useState<Record<string, { question: string; answer: string }>>({});
   const [samplesLoading, setSamplesLoading] = useState(true);
   const [samplesLoadedCount, setSamplesLoadedCount] = useState(0);
   const samplesStartedRef = useRef(false);
 
   const failureModes = state.activeFailureModes;
-  const currentMode = failureModes[currentModeIndex];
-  const existingGolden = state.goldenAnswers.find(
-    (g) => g.failureMode === currentMode.id,
-  );
+  const safeIndex = Math.min(currentModeIndex, Math.max(0, failureModes.length - 1));
+  const currentMode = failureModes[safeIndex];
+  const existingGolden = currentMode
+    ? state.goldenAnswers.find((g) => g.failureMode === currentMode.id)
+    : undefined;
   const completedCount = state.goldenAnswers.length;
 
   const loadExistingIfPresent = useCallback(
     (modeIndex: number) => {
       const mode = failureModes[modeIndex];
+      if (!mode) return;
       const existing = state.goldenAnswers.find(
         (g) => g.failureMode === mode.id,
       );
@@ -79,7 +79,7 @@ export function HumanReviewStep() {
     [state.goldenAnswers, failureModes, sampleCache],
   );
 
-  // Generate all samples concurrently on mount (once); cache so tab switches don't re-prompt
+  // Generate all samples sequentially on mount (once); cache so tab switches don't re-prompt
   useEffect(() => {
     if (samplesStartedRef.current) return;
     samplesStartedRef.current = true;
@@ -98,35 +98,25 @@ export function HumanReviewStep() {
 
     const description = state.modelConfig?.description ?? "";
 
-    const runChunk = async (chunk: typeof failureModes) => {
-      const results = await Promise.allSettled(
-        chunk.map(async (mode) => {
+    (async () => {
+      for (const mode of toFetch) {
+        try {
           const res = await fetch("/api/generate-sample", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              failureMode: mode,
-              description,
-            }),
+            body: JSON.stringify({ failureMode: mode, description }),
           });
           const json = await res.json();
-          if (!res.ok) throw new Error(json.error || "Failed to generate sample");
-          return { modeId: mode.id, question: json.data.question, answer: json.data.answer };
-        }),
-      );
-      results.forEach((r) => {
-        if (r.status === "fulfilled" && r.value) {
-          const { modeId, question, answer } = r.value;
-          setSampleCache((prev) => ({ ...prev, [modeId]: { question, answer } }));
-          setSamplesLoadedCount((c) => c + 1);
+          if (res.ok && json.data) {
+            setSampleCache((prev) => ({
+              ...prev,
+              [mode.id]: { question: json.data.question, answer: json.data.answer },
+            }));
+            setSamplesLoadedCount((c) => c + 1);
+          }
+        } catch {
+          // Non-fatal: skip this mode
         }
-      });
-    };
-
-    (async () => {
-      for (let i = 0; i < toFetch.length; i += SAMPLE_CONCURRENCY) {
-        const chunk = toFetch.slice(i, i + SAMPLE_CONCURRENCY);
-        await runChunk(chunk);
       }
       setSamplesLoading(false);
     })();
@@ -137,10 +127,18 @@ export function HumanReviewStep() {
     loadExistingIfPresent(currentModeIndex);
   }, [currentModeIndex, loadExistingIfPresent]);
 
+  // Clamp index when failure modes list shrinks (e.g. after reconfig) to avoid undefined currentMode
+  useEffect(() => {
+    if (failureModes.length > 0 && currentModeIndex >= failureModes.length) {
+      setCurrentModeIndex(Math.max(0, failureModes.length - 1));
+    }
+  }, [failureModes.length, currentModeIndex]);
+
   const generateSample = useCallback(async () => {
+    if (!currentMode) return;
     setSampleError(null);
     try {
-      const mode = failureModes[currentModeIndex];
+      const mode = currentMode;
       const res = await fetch("/api/generate-sample", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -295,7 +293,7 @@ export function HumanReviewStep() {
   }
 
   const canSave = goldenText.trim().length > 0 && sampleGenerated;
-  const isLastMode = currentModeIndex === failureModes.length - 1;
+  const isLastMode = safeIndex === failureModes.length - 1;
   const allModesCompleted = completedCount >= failureModes.length;
 
   return (
@@ -322,7 +320,7 @@ export function HumanReviewStep() {
           const isDone = state.goldenAnswers.some(
             (g) => g.failureMode === mode.id,
           );
-          const isCurrent = i === currentModeIndex;
+          const isCurrent = i === safeIndex;
           return (
             <button
               key={mode.id}
@@ -343,12 +341,20 @@ export function HumanReviewStep() {
       </div>
 
       {/* Current failure mode info */}
+      {!currentMode ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No failure modes to review. Complete Configure to add failure modes.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">{currentMode.label}</CardTitle>
             <Badge variant="outline" className="font-normal">
-              {currentModeIndex + 1} of {failureModes.length}
+              {safeIndex + 1} of {failureModes.length}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -398,7 +404,7 @@ export function HumanReviewStep() {
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Generating samples for all failure modes (up to {SAMPLE_CONCURRENCY} at a time)…
+                Generating samples for each failure mode (one at a time)…
               </p>
               <p className="text-xs text-muted-foreground">
                 Switching tabs won’t re-prompt; samples are cached.
@@ -546,6 +552,8 @@ export function HumanReviewStep() {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

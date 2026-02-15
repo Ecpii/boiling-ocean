@@ -6,6 +6,7 @@
  */
 
 import { generateText, Output } from "ai";
+import { getClaudeModel } from "@/lib/ai-claude";
 import { z } from "zod";
 import { validatePmids } from "@/lib/pubmed-entrez";
 
@@ -30,7 +31,7 @@ const implicitRefSchema = z.object({
 /** Use LLM to detect likely references that lack a citation (no PMID). */
 async function detectUncitedReferences(text: string): Promise<string[]> {
   const result = await generateText({
-    model: "anthropic/claude-sonnet-4-20250514",
+    model: getClaudeModel(),
     output: Output.object({ schema: implicitRefSchema }),
     system: "You detect references to studies or papers in medical text that are NOT cited with a PMID or similar. List only clear references (e.g. 'Smith et al., 2020', 'a recent trial') that lack an explicit citation. If none, return empty array.",
     prompt: `Text:\n\n${text.slice(0, 5000)}\n\nList any phrases that look like references to studies/papers but have no PMID or citation. Return empty if everything is properly cited or there are no such references.`,

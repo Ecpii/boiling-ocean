@@ -6,6 +6,7 @@
  */
 
 import { generateText, Output } from "ai";
+import { getClaudeModel } from "@/lib/ai-claude";
 import { z } from "zod";
 
 const stepSchema = z.object({
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
       }
 
       const result = await generateText({
-        model: "anthropic/claude-sonnet-4-20250514",
+        model: getClaudeModel(),
         output: Output.object({ schema: stepSchema }),
         system: "You evaluate multi-turn medical conversations. For each assistant turn (step), score 0-100: how useful and correct is the information in that step? Consider whether the step adds non-redundant, accurate information. Output stepScores: one number per assistant turn, in order.",
         prompt: `Conversation (analyze each ASSISTANT turn separately; output one score per assistant turn, in order):\n\n${(r.turns ?? [])

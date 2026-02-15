@@ -44,26 +44,22 @@ export function GenerateQuestions() {
 
     const allRows: Record<string, DatasetRow[]> = {};
 
-    await Promise.all(
-      Array.from(datasetNames).map(async (datasetName) => {
-        try {
-          setStatusMessage(
-            `Fetching clinical data from ${datasetName}...`,
-          );
-          const res = await fetch("/api/fetch-dataset", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ datasetName, count: 8 }),
-          });
-          if (res.ok) {
-            const json = await res.json();
-            allRows[datasetName] = json.data.rows;
-          }
-        } catch {
-          // Non-fatal: we can still generate questions without dataset grounding
+    for (const datasetName of datasetNames) {
+      try {
+        setStatusMessage(`Fetching clinical data from ${datasetName}...`);
+        const res = await fetch("/api/fetch-dataset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ datasetName, count: 8 }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          allRows[datasetName] = json.data.rows;
         }
-      }),
-    );
+      } catch {
+        // Non-fatal: we can still generate questions without dataset grounding
+      }
+    }
 
     return allRows;
   }

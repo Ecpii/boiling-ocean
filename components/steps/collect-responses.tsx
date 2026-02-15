@@ -14,8 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 
 const MAX_TURNS = 3;
-/** How many questions to run at once (parallel collection). Tune down if you hit rate limits. */
-const CONCURRENCY = 5;
 
 export function CollectResponses() {
   const { state, dispatch } = useWorkflow();
@@ -59,6 +57,7 @@ export function CollectResponses() {
       body: JSON.stringify({
         provider: state.modelConfig!.provider,
         modelId: state.modelConfig!.modelId,
+        apiKey: state.modelConfig!.apiKey?.trim() || undefined,
         question: q.text,
         conversationHistory: [],
         requestConfidence: hasGroundTruth,
@@ -90,6 +89,7 @@ export function CollectResponses() {
           body: JSON.stringify({
             provider: state.modelConfig!.provider,
             modelId: state.modelConfig!.modelId,
+            apiKey: state.modelConfig!.apiKey?.trim() || undefined,
             question: followUp,
             conversationHistory: turns,
           }),
@@ -114,26 +114,24 @@ export function CollectResponses() {
 
   async function collectAllResponses() {
     setIsLoading(true);
-    setCurrentQuestion(`Running up to ${CONCURRENCY} questions in parallel…`);
+    setCurrentQuestion("Running one question at a time…");
     setCurrentMode("");
 
-    for (let i = 0; i < enabledQuestions.length; i += CONCURRENCY) {
-      const chunk = enabledQuestions.slice(i, i + CONCURRENCY);
-      setInFlight(chunk.length);
-      setCurrentMode(`Batch ${Math.floor(i / CONCURRENCY) + 1} of ${Math.ceil(enabledQuestions.length / CONCURRENCY)}`);
+    for (let i = 0; i < enabledQuestions.length; i++) {
+      const q = enabledQuestions[i];
+      setInFlight(1);
+      setCurrentMode(`Question ${i + 1} of ${enabledQuestions.length}`);
 
-      const results = await Promise.allSettled(
-        chunk.map((q) => collectOneQuestion(q)),
-      );
-
-      for (let j = 0; j < results.length; j++) {
-        const r = results[j];
-        if (r.status === "fulfilled" && r.value) {
-          dispatch({ type: "ADD_RESPONSE", response: r.value });
+      try {
+        const result = await collectOneQuestion(q);
+        if (result) {
+          dispatch({ type: "ADD_RESPONSE", response: result });
           setCompletedCount((c) => c + 1);
         } else {
           setFailedCount((f) => f + 1);
         }
+      } catch {
+        setFailedCount((f) => f + 1);
       }
       setInFlight(0);
     }

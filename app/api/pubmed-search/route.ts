@@ -5,6 +5,7 @@
  */
 
 import { generateText, Output } from "ai";
+import { getClaudeModel } from "@/lib/ai-claude";
 import { z } from "zod";
 import { esearch, efetchAbstracts, type PubMedArticle } from "@/lib/pubmed-entrez";
 
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     const result = await generateText({
-      model: "anthropic/claude-sonnet-4-20250514",
+      model: getClaudeModel(),
       output: Output.object({ schema: querySchema }),
       system: `You are a medical literature expert. Given an AI model's response about health/medicine, output 1–3 short PubMed search queries (Entrez query syntax) to find papers that could support or refute the claims. Use terms like drug names, conditions, and key phrases. Each query should be a single line, no quotes.`,
       prompt: `Model response to analyze:\n\n${responseText.slice(0, 6000)}\n\nOutput 1–3 PubMed search queries (Entrez style) to cross-reference these claims.`,

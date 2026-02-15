@@ -1,4 +1,15 @@
 import { generateText } from "ai"
+import type { LanguageModel } from "ai"
+import { createAnthropic } from "@ai-sdk/anthropic"
+
+/** Resolve target model: Anthropic uses apiKey (request or env); OpenAI/Groq/xAI use Vercel gateway (no personal token). */
+function getTargetModel(provider: string, modelId: string, apiKeyFromRequest?: string | null): LanguageModel {
+  if (provider === "anthropic") {
+    const key = apiKeyFromRequest?.trim() || process.env.ANTHROPIC_API_KEY?.trim()
+    if (key) return createAnthropic({ apiKey: key })(modelId) as LanguageModel
+  }
+  return `${provider}/${modelId}` as LanguageModel
+}
 
 /** Confidence prompt: natural human interaction (like a user asking for reassurance). */
 const CONFIDENCE_SUFFIX =
@@ -35,9 +46,9 @@ function parseConfidence(text: string): number | undefined {
 
 export async function POST(req: Request) {
   try {
-    const { provider, modelId, question, conversationHistory, requestConfidence } = await req.json()
+    const { provider, modelId, question, conversationHistory, requestConfidence, apiKey } = await req.json()
 
-    const modelString = `${provider}/${modelId}`
+    const model = getTargetModel(provider, modelId, apiKey)
     const messages: { role: "user" | "assistant"; content: string }[] = conversationHistory
       ? conversationHistory.map((turn: { role: string; content: string }) => ({
           role: turn.role as "user" | "assistant",
@@ -52,7 +63,7 @@ export async function POST(req: Request) {
     messages.push({ role: "user", content: userMessage })
 
     const result = await generateText({
-      model: modelString,
+      model,
       messages,
       maxOutputTokens: 1024,
     })
