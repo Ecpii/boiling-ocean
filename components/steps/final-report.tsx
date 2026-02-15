@@ -46,6 +46,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { titleCase } from "@/lib/utils";
+import React from "react";
 
 const chartConfig: ChartConfig = {
   score: {
@@ -290,30 +292,28 @@ export function FinalReport() {
               </p>
               <p className="text-muted-foreground">Critical Issues</p>
             </div>
-            <div className="h-8 w-px bg-border" />
-            <div className="text-center">
-              <p className="font-semibold tabular-nums">
-                {report.goldenAnswerSimilarity &&
-                report.goldenAnswerSimilarity.length > 0
-                  ? `${(
-                      (report.goldenAnswerSimilarity.reduce(
-                        (s, g) => s + g.averageSimilarity,
-                        0,
-                      ) /
-                        report.goldenAnswerSimilarity.length) *
-                      100
-                    ).toFixed(0)}%`
-                  : "N/A"}
-              </p>
-              <p className="text-muted-foreground">Avg Similarity</p>
-            </div>
-            <div className="h-8 w-px bg-border" />
+            {Object.entries(report?.scoringBreakdown ?? {}).map(
+              ([key, value]) => (
+                <React.Fragment key={key}>
+                  <div className="h-8 w-px bg-border" />
+                  <div className="text-center">
+                    <p className="font-semibold tabular-nums">
+                      {typeof value === "number" ? value.toFixed(1) : value}%
+                    </p>
+                    <p className="text-muted-foreground">
+                      {titleCase(key.replace("Pct", ""))}
+                    </p>
+                  </div>
+                </React.Fragment>
+              ),
+            )}
+            {/* <div className="h-8 w-px bg-border" />
             <div className="text-center">
               <p className="font-semibold tabular-nums">
                 {state.responses.length}
               </p>
               <p className="text-muted-foreground">Tests Run</p>
-            </div>
+            </div> */}
           </div>
         </CardContent>
       </Card>
@@ -393,41 +393,6 @@ export function FinalReport() {
                 </CollapsibleContent>
               </Collapsible>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Real-time score (0-100) and scoring breakdown — accuracy + similarity separate */}
-      {(report.realTimeScore != null ||
-        (report.scoringBreakdown &&
-          Object.keys(report.scoringBreakdown).length > 0)) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Score Breakdown (out of 100)</CardTitle>
-            <CardDescription>
-              Separate metrics: accuracy (ground truth), style similarity,
-              citations. Real-time style aggregate.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {report.scoringBreakdown &&
-              Object.keys(report.scoringBreakdown).length > 0 && (
-                <div className="flex flex-wrap gap-4">
-                  {Object.entries(report.scoringBreakdown).map(
-                    ([key, value]) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground capitalize">
-                          {key.replace(/Pct$/, "")}
-                        </span>
-                        <Badge variant="secondary" className="tabular-nums">
-                          {typeof value === "number" ? value.toFixed(1) : value}
-                          %
-                        </Badge>
-                      </div>
-                    ),
-                  )}
-                </div>
-              )}
           </CardContent>
         </Card>
       )}
