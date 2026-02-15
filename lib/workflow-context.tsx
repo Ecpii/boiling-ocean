@@ -21,6 +21,7 @@ import {
 } from "./types";
 import {
   DEFAULT_DESCRIPTION,
+  DEFAULT_MODEL_CONFIG,
   DEFAULT_QUESTIONS,
   DEFAULT_REPORT,
   DEFAULT_RESPONSES,
@@ -38,7 +39,10 @@ type Action =
   | { type: "REMOVE_QUESTION"; id: string }
   | { type: "SET_RESPONSES"; responses: ModelResponse[] }
   | { type: "ADD_RESPONSE"; response: ModelResponse }
-  | { type: "SET_CATEGORY_CLASSIFICATION"; classification: CategoryClassification }
+  | {
+      type: "SET_CATEGORY_CLASSIFICATION";
+      classification: CategoryClassification;
+    }
   | { type: "SET_ACTIVE_FAILURE_MODES"; modes: FailureMode[] }
   | { type: "ADD_GOLDEN_ANSWER"; goldenAnswer: GoldenAnswer }
   | { type: "SET_SIMILARITY_RESULTS"; results: SimilarityResult[] }
@@ -66,43 +70,23 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
   [WorkflowStep.GENERATE]: {
     ...initialState,
     step: 1,
-    modelConfig: {
-      provider: "openai",
-      apiKey: "",
-      modelId: "gpt-4o",
-      description: DEFAULT_DESCRIPTION,
-    },
+    modelConfig: DEFAULT_MODEL_CONFIG,
   },
   [WorkflowStep.REVIEW]: {
     ...initialState,
     step: 2,
-    modelConfig: {
-      provider: "openai",
-      apiKey: "",
-      modelId: "gpt-4o",
-      description: DEFAULT_DESCRIPTION,
-    },
+    modelConfig: DEFAULT_MODEL_CONFIG,
     questions: DEFAULT_QUESTIONS,
   },
   [WorkflowStep.COLLECT]: {
     ...initialState,
     step: 3,
-    modelConfig: {
-      provider: "openai",
-      apiKey: "",
-      modelId: "gpt-4o",
-      description: DEFAULT_DESCRIPTION,
-    },
+    modelConfig: DEFAULT_MODEL_CONFIG,
     questions: DEFAULT_QUESTIONS,
   },
   [WorkflowStep.HUMAN_REVIEW]: {
     step: 4,
-    modelConfig: {
-      provider: "openai",
-      apiKey: "",
-      modelId: "gpt-4o",
-      description: DEFAULT_DESCRIPTION,
-    },
+    modelConfig: DEFAULT_MODEL_CONFIG,
     categoryClassification: null,
     activeFailureModes: [],
     questions: DEFAULT_QUESTIONS,
@@ -113,12 +97,7 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
   },
   [WorkflowStep.REPORT]: {
     step: 5,
-    modelConfig: {
-      provider: "openai",
-      apiKey: "",
-      modelId: "gpt-4o",
-      description: DEFAULT_DESCRIPTION,
-    },
+    modelConfig: DEFAULT_MODEL_CONFIG,
     categoryClassification: null,
     activeFailureModes: [],
     questions: DEFAULT_QUESTIONS,

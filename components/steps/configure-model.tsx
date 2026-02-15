@@ -6,10 +6,9 @@ import {
   WorkflowStep,
   PROVIDER_LABELS,
   PROVIDER_DEFAULT_MODELS,
-  CATEGORY_LABELS,
   type Provider,
   type ModelConfig,
-  type CategoryClassification,
+  CategoryClassification,
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,14 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertCircle,
-  ArrowRight,
-  Shield,
-  Loader2,
-  Sparkles,
-  CheckCircle2,
-} from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2, Shield } from "lucide-react";
 import { DEFAULT_DESCRIPTION } from "@/lib/consts";
 
 export function ConfigureModel() {
@@ -52,12 +44,7 @@ export function ConfigureModel() {
     },
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isClassifying, setIsClassifying] = useState(false);
-  const [classifyError, setClassifyError] = useState<string | null>(null);
-  const [classification, setClassification] =
-    useState<CategoryClassification | null>(
-      state.categoryClassification ?? null,
-    );
+  const [isLoading, setIsLoading] = useState(false);
 
   function handleProviderChange(provider: Provider) {
     setConfig((prev) => ({
@@ -80,14 +67,12 @@ export function ConfigureModel() {
     return Object.keys(newErrors).length === 0;
   }
 
-  async function handleClassify() {
+  async function handleContinue() {
     if (!validate()) return;
-    setIsClassifying(true);
-    setClassifyError(null);
 
+    setIsLoading(true);
     try {
       dispatch({ type: "SET_MODEL_CONFIG", config });
-
       const res = await fetch("/api/classify-category", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,18 +83,17 @@ export function ConfigureModel() {
       if (!res.ok) throw new Error(json.error || "Classification failed");
 
       const result: CategoryClassification = json.data;
-      setClassification(result);
       dispatch({ type: "SET_CATEGORY_CLASSIFICATION", classification: result });
     } catch (err) {
-      setClassifyError(
-        err instanceof Error ? err.message : "Classification failed",
-      );
-    } finally {
-      setIsClassifying(false);
+      setErrors({
+        classifiction:
+          err instanceof Error ? err.message : "Classification failed",
+      });
+      setIsLoading(false);
+      return;
     }
-  }
 
-  function handleContinue() {
+    setIsLoading(false);
     dispatch({ type: "SET_STEP", step: WorkflowStep.GENERATE });
   }
 
@@ -197,8 +181,8 @@ export function ConfigureModel() {
         <CardHeader>
           <CardTitle>Healthcare Use Case</CardTitle>
           <CardDescription>
-            Describe what the AI model is used for. This determines which failure
-            mode category and test scenarios are selected.
+            Describe what the AI model is used for. This determines which
+            failure mode category and test scenarios are selected.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -207,10 +191,6 @@ export function ConfigureModel() {
             value={config.description}
             onChange={(e) => {
               setConfig((prev) => ({ ...prev, description: e.target.value }));
-              // Clear classification if description changes
-              if (classification) {
-                setClassification(null);
-              }
             }}
             placeholder={`e.g. ${DEFAULT_DESCRIPTION}`}
             rows={4}
@@ -223,7 +203,6 @@ export function ConfigureModel() {
                   ...prev,
                   description: DEFAULT_DESCRIPTION,
                 }));
-                if (classification) setClassification(null);
               }}
             >
               <div className="text-muted-foreground underline text-sm">
@@ -240,95 +219,27 @@ export function ConfigureModel() {
         </CardContent>
       </Card>
 
-      {/* Classification result */}
-      {classification && (
-        <Card className="border-[hsl(var(--primary))]/30 bg-[hsl(var(--primary))]/[0.03]">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-              Category Classified
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="secondary"
-                className="text-sm px-3 py-1 font-semibold"
-              >
-                {CATEGORY_LABELS[classification.category]}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {classification.reasoning}
-            </p>
-
-            <div>
-              <p className="text-sm font-medium mb-2">
-                Active Failure Modes ({classification.failureModes.length})
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {classification.failureModes.map((fm) => (
-                  <div
-                    key={fm.id}
-                    className="flex items-start gap-2 text-sm"
-                  >
-                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-foreground/40 shrink-0" />
-                    <div>
-                      <span className="font-medium">{fm.label}</span>
-                      {fm.isDynamic && (
-                        <Badge
-                          variant="outline"
-                          className="ml-2 text-[10px] px-1.5 py-0"
-                        >
-                          Dynamic
-                        </Badge>
-                      )}
-                      <span className="text-muted-foreground ml-1">
-                        {" -- "}
-                        {fm.description}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {classifyError && (
-        <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
-          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-          <p className="text-sm text-destructive">{classifyError}</p>
-        </div>
-      )}
-
       <div className="flex justify-end gap-3">
-        {!classification ? (
-          <Button
-            onClick={handleClassify}
-            size="lg"
-            className="gap-2"
-            disabled={isClassifying}
-          >
-            {isClassifying ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Classifying Use Case...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" />
-                Classify & Configure
-              </>
-            )}
-          </Button>
-        ) : (
-          <Button onClick={handleContinue} size="lg" className="gap-2">
-            Generate Test Questions
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+        {errors.classification && (
+          <p className="text-sm text-destructive flex items-center gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5" />
+            {errors.classification}
+          </p>
         )}
+        {isLoading}
+        <Button
+          onClick={handleContinue}
+          size="lg"
+          className="gap-2"
+          disabled={isLoading}
+        >
+          Generate Test Questions
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-white" />
+          ) : (
+            <ArrowRight className="h-4 w-4" />
+          )}
+        </Button>
       </div>
     </div>
   );
