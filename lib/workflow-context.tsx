@@ -24,6 +24,7 @@ import {
 } from "./types";
 import {
   DEFAULT_DESCRIPTION,
+  DEFAULT_GOLDEN_ANSWERS,
   DEFAULT_MODEL_CONFIG,
   DEFAULT_QUESTIONS,
   DEFAULT_REPORT,
@@ -51,7 +52,10 @@ type Action =
   | { type: "SET_SIMILARITY_RESULTS"; results: SimilarityResult[] }
   | { type: "SET_CITATION_CHECK_RESULTS"; results: CitationCheckResult[] }
   | { type: "SET_UMLS_VALIDATION_RESULTS"; results: UmlsValidationResult }
-  | { type: "SET_MULTI_STEP_REASONING_RESULTS"; results: MultiStepReasoningResult }
+  | {
+      type: "SET_MULTI_STEP_REASONING_RESULTS";
+      results: MultiStepReasoningResult;
+    }
   | { type: "SET_REPORT"; report: AuditReport }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
@@ -114,7 +118,7 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
     activeFailureModes: [],
     questions: DEFAULT_QUESTIONS,
     responses: DEFAULT_RESPONSES,
-    goldenAnswers: [],
+    goldenAnswers: DEFAULT_GOLDEN_ANSWERS,
     similarityResults: [],
     citationCheckResults: null,
     umlsValidationResults: null,
