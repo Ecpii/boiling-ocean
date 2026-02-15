@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useWorkflow } from "@/lib/workflow-context"
-import { WorkflowStep, FAILURE_MODES, type FailureModeId } from "@/lib/types"
+import { WorkflowStep } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -20,7 +20,8 @@ export function ReviewQuestions() {
   const { state, dispatch } = useWorkflow()
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  const questionsByMode = FAILURE_MODES.map((fm) => ({
+  const failureModes = state.activeFailureModes;
+  const questionsByMode = failureModes.map((fm) => ({
     ...fm,
     questions: state.questions.filter((q) => q.failureMode === fm.id),
   }))
@@ -28,8 +29,7 @@ export function ReviewQuestions() {
   const enabledCount = state.questions.filter((q) => q.enabled).length
   const totalCount = state.questions.length
 
-  function handleAddQuestion(failureMode: FailureModeId) {
-    const existing = state.questions.filter((q) => q.failureMode === failureMode)
+  function handleAddQuestion(failureMode: string) {
     dispatch({
       type: "ADD_QUESTION",
       question: {
@@ -72,7 +72,7 @@ export function ReviewQuestions() {
         </Badge>
       </div>
 
-      <Accordion type="multiple" defaultValue={FAILURE_MODES.map((fm) => fm.id)} className="flex flex-col gap-3">
+      <Accordion type="multiple" defaultValue={failureModes.map((fm) => fm.id)} className="flex flex-col gap-3">
         {questionsByMode.map((group) => (
           <AccordionItem
             key={group.id}
@@ -82,6 +82,9 @@ export function ReviewQuestions() {
             <AccordionTrigger className="px-4 py-3 hover:no-underline">
               <div className="flex items-center gap-3">
                 <span className="font-semibold">{group.label}</span>
+                {group.isDynamic && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Dynamic</Badge>
+                )}
                 <Badge variant="outline" className="tabular-nums">
                   {group.questions.filter((q) => q.enabled).length} / {group.questions.length}
                 </Badge>
@@ -119,19 +122,33 @@ export function ReviewQuestions() {
                           autoFocus
                         />
                       ) : (
-                        <p
-                          className={`text-sm cursor-pointer hover:text-foreground transition-colors ${
-                            question.enabled ? "text-foreground" : "text-muted-foreground line-through"
-                          }`}
-                          onClick={() => setEditingId(question.id)}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") setEditingId(question.id)
-                          }}
-                        >
-                          {question.text || "Click to add question text..."}
-                        </p>
+                        <div>
+                          <p
+                            className={`text-sm cursor-pointer hover:text-foreground transition-colors ${
+                              question.enabled ? "text-foreground" : "text-muted-foreground line-through"
+                            }`}
+                            onClick={() => setEditingId(question.id)}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") setEditingId(question.id)
+                            }}
+                          >
+                            {question.text || "Click to add question text..."}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {question.datasetSource && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-1">
+                                {question.datasetSource}
+                              </Badge>
+                            )}
+                            {question.demographicVariant && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1">
+                                Variant: {question.demographicVariant.dimension} = {question.demographicVariant.value}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                     <Button

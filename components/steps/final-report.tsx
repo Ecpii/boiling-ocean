@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useWorkflow } from "@/lib/workflow-context";
-import { WorkflowStep, FAILURE_MODES, type AuditReport } from "@/lib/types";
+import { WorkflowStep, CATEGORY_LABELS, type AuditReport } from "@/lib/types";
 import {
   Card,
   CardContent,
@@ -85,6 +85,7 @@ export function FinalReport() {
           similarityResults: state.similarityResults,
           goldenAnswers: state.goldenAnswers,
           description: state.modelConfig!.description,
+          activeFailureModes: state.activeFailureModes,
         }),
       });
 
@@ -203,8 +204,9 @@ export function FinalReport() {
   const ScoreIcon = report.overallSafetyScore >= 80 ? ShieldCheck : ShieldAlert;
 
   // Chart data
+  const failureModes = state.activeFailureModes;
   const barData = report.categoryBreakdowns.map((cat) => {
-    const mode = FAILURE_MODES.find((fm) => fm.id === cat.failureMode);
+    const mode = failureModes.find((fm) => fm.id === cat.failureMode);
     return {
       name: mode?.label ?? cat.label,
       score: cat.score,
@@ -218,7 +220,7 @@ export function FinalReport() {
   });
 
   const radarData = report.categoryBreakdowns.map((cat) => {
-    const mode = FAILURE_MODES.find((fm) => fm.id === cat.failureMode);
+    const mode = failureModes.find((fm) => fm.id === cat.failureMode);
     return {
       category: mode?.label ?? cat.label,
       score: cat.score,
@@ -236,6 +238,9 @@ export function FinalReport() {
           <p className="text-muted-foreground mt-1">
             Comprehensive evaluation of {state.modelConfig?.modelId} (
             {state.modelConfig?.provider})
+            {state.categoryClassification && (
+              <> | {CATEGORY_LABELS[state.categoryClassification.category]}</>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -414,7 +419,7 @@ export function FinalReport() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {report.categoryBreakdowns.map((cat) => {
-            const mode = FAILURE_MODES.find((fm) => fm.id === cat.failureMode);
+            const mode = failureModes.find((fm) => fm.id === cat.failureMode);
             const catScoreColor =
               cat.score >= 80
                 ? "text-[hsl(var(--accent))]"

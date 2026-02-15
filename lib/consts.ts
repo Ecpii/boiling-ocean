@@ -1,7 +1,158 @@
-import { AuditReport, ModelResponse, TestQuestion } from "./types";
+import {
+  AuditReport,
+  FailureMode,
+  FailureModeCategory,
+  ModelResponse,
+  TestQuestion,
+} from "./types";
 
 export const DEFAULT_DESCRIPTION =
   "A patient-facing chatbot that helps users understand their medications, provides general health information, and assists with appointment scheduling for a large hospital network.";
+
+// --- Categorized Failure Modes ---
+
+export const PATIENT_FOCUSED_MODES: FailureMode[] = [
+  {
+    id: "drug-interactions",
+    label: "Drug Interaction Warnings",
+    description:
+      "Testing whether the model correctly identifies dangerous drug combinations and advises patients to seek professional guidance.",
+    category: "patient-focused",
+    isDynamic: false,
+    datasetSource: "MedQA-USMLE",
+  },
+  {
+    id: "triage-recognition",
+    label: "Triage & Emergency Recognition",
+    description:
+      "Evaluating whether the model correctly identifies emergency vs. non-emergency situations and escalates appropriately.",
+    category: "patient-focused",
+    isDynamic: false,
+    datasetSource: "PubMedQA",
+  },
+  {
+    id: "patient-privacy",
+    label: "Patient Data Privacy",
+    description:
+      "Checking whether the model properly refuses to share, store, or leak sensitive patient information.",
+    category: "patient-focused",
+    isDynamic: false,
+  },
+  {
+    id: "demographic-disparity-patient",
+    label: "Demographic Disparity in Patient Advice",
+    description:
+      "Testing whether the model provides equitable advice regardless of patient age, gender, race, or ethnicity by comparing responses across demographic variants.",
+    category: "patient-focused",
+    isDynamic: false,
+    datasetSource: "MedQA-USMLE",
+  },
+];
+
+export const CLINICIAN_FOCUSED_MODES: FailureMode[] = [
+  {
+    id: "diagnostic-boundaries",
+    label: "Diagnostic Boundaries",
+    description:
+      "Assessing whether the model appropriately defers to qualified professionals rather than providing diagnoses.",
+    category: "clinician-focused",
+    isDynamic: false,
+    datasetSource: "MedQA-USMLE",
+  },
+  {
+    id: "clinical-guidelines",
+    label: "Clinical Guideline Adherence",
+    description:
+      "Verifying the model follows established medical guidelines and evidence-based protocols.",
+    category: "clinician-focused",
+    isDynamic: false,
+    datasetSource: "PubMedQA",
+  },
+  {
+    id: "evidence-grading",
+    label: "Evidence Quality Grading",
+    description:
+      "Testing whether the model appropriately communicates the strength of medical evidence and distinguishes between established and experimental treatments.",
+    category: "clinician-focused",
+    isDynamic: false,
+    datasetSource: "PubMedQA",
+  },
+  {
+    id: "demographic-disparity-clinical",
+    label: "Demographic Disparity in Clinical Decisions",
+    description:
+      "Testing whether clinical recommendations vary inappropriately based on patient demographics presented to the model.",
+    category: "clinician-focused",
+    isDynamic: false,
+    datasetSource: "MedQA-USMLE",
+  },
+];
+
+export const ADMINISTRATIVE_FOCUSED_MODES: FailureMode[] = [
+  {
+    id: "billing-compliance",
+    label: "Billing & Coding Compliance",
+    description:
+      "Testing whether the model provides accurate and compliant guidance on medical billing codes and insurance processes.",
+    category: "administrative-focused",
+    isDynamic: false,
+  },
+  {
+    id: "regulatory-adherence",
+    label: "Regulatory Adherence (HIPAA, etc.)",
+    description:
+      "Evaluating whether the model correctly advises on healthcare regulatory requirements including HIPAA, informed consent, and reporting obligations.",
+    category: "administrative-focused",
+    isDynamic: false,
+  },
+  {
+    id: "resource-allocation",
+    label: "Resource Allocation Fairness",
+    description:
+      "Testing whether the model provides equitable resource allocation recommendations without bias toward or against specific patient populations.",
+    category: "administrative-focused",
+    isDynamic: false,
+  },
+  {
+    id: "demographic-disparity-admin",
+    label: "Demographic Disparity in Administrative Processes",
+    description:
+      "Testing whether administrative recommendations (scheduling priority, resource access, etc.) vary inappropriately based on patient demographics.",
+    category: "administrative-focused",
+    isDynamic: false,
+  },
+];
+
+export const FAILURE_MODES_BY_CATEGORY: Record<FailureModeCategory, FailureMode[]> = {
+  "patient-focused": PATIENT_FOCUSED_MODES,
+  "clinician-focused": CLINICIAN_FOCUSED_MODES,
+  "administrative-focused": ADMINISTRATIVE_FOCUSED_MODES,
+};
+
+/** Flat convenience array of all hardcoded failure modes */
+export const ALL_FAILURE_MODES: FailureMode[] = [
+  ...PATIENT_FOCUSED_MODES,
+  ...CLINICIAN_FOCUSED_MODES,
+  ...ADMINISTRATIVE_FOCUSED_MODES,
+];
+
+// --- Clinical Dataset Sources ---
+
+export const DATASET_SOURCES: Record<
+  string,
+  { hfDataset: string; hfConfig: string; hfSplit: string }
+> = {
+  "PubMedQA": {
+    hfDataset: "qiaojin/PubMedQA",
+    hfConfig: "pqa_labeled",
+    hfSplit: "train",
+  },
+  "MedQA-USMLE": {
+    hfDataset: "GBaker/MedQA-USMLE-4-options",
+    hfConfig: "default",
+    hfSplit: "test",
+  },
+};
 
 export const DEFAULT_QUESTIONS: TestQuestion[] = [
   {
@@ -1245,28 +1396,23 @@ export const DEFAULT_REPORT: AuditReport = {
   goldenAnswerSimilarity: [
     {
       failureMode: "drug-interactions",
-      label: "Drug Interactions",
+      label: "Drug Interaction Warnings",
       averageSimilarity: 0.78,
     },
     {
       failureMode: "triage-recognition",
-      label: "Triage Recognition",
+      label: "Triage & Emergency Recognition",
       averageSimilarity: 0.85,
     },
     {
-      failureMode: "diagnostic-boundaries",
-      label: "Diagnostic Boundaries",
-      averageSimilarity: 0.72,
-    },
-    {
       failureMode: "patient-privacy",
-      label: "Patient Privacy & Data Handling",
+      label: "Patient Data Privacy",
       averageSimilarity: 0.91,
     },
     {
-      failureMode: "clinical-guidelines",
-      label: "Clinical Guideline Adherence",
-      averageSimilarity: 0.82,
+      failureMode: "demographic-disparity-patient",
+      label: "Demographic Disparity in Patient Advice",
+      averageSimilarity: 0.68,
     },
   ],
 };

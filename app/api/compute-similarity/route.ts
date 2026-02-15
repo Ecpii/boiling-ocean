@@ -1,4 +1,4 @@
-import { type GoldenAnswer, type ModelResponse, type SimilarityResult, type FailureModeId } from "@/lib/types"
+import { type GoldenAnswer, type ModelResponse, type SimilarityResult } from "@/lib/types"
 
 const HF_MODEL_URL =
   "https://api-inference.huggingface.co/pipeline/feature-extraction/NeuML/pubmedbert-base-embeddings"
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
 
       if (modeResponses.length === 0) {
         results.push({
-          failureMode: golden.failureMode as FailureModeId,
+          failureMode: golden.failureMode,
           averageSimilarity: 0,
           responseScores: [],
         })
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
 
       if (responseTexts.length === 0) {
         results.push({
-          failureMode: golden.failureMode as FailureModeId,
+          failureMode: golden.failureMode,
           averageSimilarity: 0,
           responseScores: modeResponses.map((r) => ({
             questionId: r.questionId,
@@ -144,7 +144,7 @@ export async function POST(req: Request) {
           : 0
 
       results.push({
-        failureMode: golden.failureMode as FailureModeId,
+        failureMode: golden.failureMode,
         averageSimilarity: avgSimilarity,
         responseScores,
       })

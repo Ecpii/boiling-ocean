@@ -16,6 +16,8 @@ import {
   GoldenAnswer,
   SimilarityResult,
   AuditReport,
+  CategoryClassification,
+  FailureMode,
 } from "./types";
 import {
   DEFAULT_DESCRIPTION,
@@ -36,6 +38,8 @@ type Action =
   | { type: "REMOVE_QUESTION"; id: string }
   | { type: "SET_RESPONSES"; responses: ModelResponse[] }
   | { type: "ADD_RESPONSE"; response: ModelResponse }
+  | { type: "SET_CATEGORY_CLASSIFICATION"; classification: CategoryClassification }
+  | { type: "SET_ACTIVE_FAILURE_MODES"; modes: FailureMode[] }
   | { type: "ADD_GOLDEN_ANSWER"; goldenAnswer: GoldenAnswer }
   | { type: "SET_SIMILARITY_RESULTS"; results: SimilarityResult[] }
   | { type: "SET_REPORT"; report: AuditReport }
@@ -48,6 +52,8 @@ type Action =
 const initialState: WorkflowState = {
   step: 0,
   modelConfig: null,
+  categoryClassification: null,
+  activeFailureModes: [],
   questions: [],
   responses: [],
   goldenAnswers: [],
@@ -97,6 +103,8 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
       modelId: "gpt-4o",
       description: DEFAULT_DESCRIPTION,
     },
+    categoryClassification: null,
+    activeFailureModes: [],
     questions: DEFAULT_QUESTIONS,
     responses: DEFAULT_RESPONSES,
     goldenAnswers: [],
@@ -111,6 +119,8 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
       modelId: "gpt-4o",
       description: DEFAULT_DESCRIPTION,
     },
+    categoryClassification: null,
+    activeFailureModes: [],
     questions: DEFAULT_QUESTIONS,
     responses: DEFAULT_RESPONSES,
     goldenAnswers: [],
@@ -152,6 +162,14 @@ function reducer(state: WorkflowState, action: Action): WorkflowState {
       return { ...state, responses: action.responses };
     case "ADD_RESPONSE":
       return { ...state, responses: [...state.responses, action.response] };
+    case "SET_CATEGORY_CLASSIFICATION":
+      return {
+        ...state,
+        categoryClassification: action.classification,
+        activeFailureModes: action.classification.failureModes,
+      };
+    case "SET_ACTIVE_FAILURE_MODES":
+      return { ...state, activeFailureModes: action.modes };
     case "ADD_GOLDEN_ANSWER":
       return {
         ...state,
