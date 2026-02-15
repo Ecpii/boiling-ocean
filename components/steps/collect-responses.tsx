@@ -66,7 +66,9 @@ export function CollectResponses() {
     if (!res1.ok) throw new Error("Model request failed");
     const res1Json = await res1.json();
     const answer1 = res1Json.response;
-    const confidenceScore = hasGroundTruth ? res1Json.confidenceScore : undefined;
+    const confidenceScore = hasGroundTruth
+      ? res1Json.confidenceScore
+      : undefined;
     turns.push({ role: "user", content: q.text });
     turns.push({ role: "assistant", content: answer1 });
 
@@ -121,6 +123,7 @@ export function CollectResponses() {
       const q = enabledQuestions[i];
       setInFlight(1);
       setCurrentMode(`Question ${i + 1} of ${enabledQuestions.length}`);
+      setCurrentQuestion(q.text);
 
       try {
         const result = await collectOneQuestion(q);

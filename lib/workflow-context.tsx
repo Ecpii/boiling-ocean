@@ -23,12 +23,14 @@ import {
   MultiStepReasoningResult,
 } from "./types";
 import {
-  DEFAULT_DESCRIPTION,
+  DEFAULT_ACTIVE_FAILURE_MODES,
+  DEFAULT_CLASSIFICATION,
   DEFAULT_GOLDEN_ANSWERS,
   DEFAULT_MODEL_CONFIG,
   DEFAULT_QUESTIONS,
   DEFAULT_REPORT,
   DEFAULT_RESPONSES,
+  DEFAULT_SIMILARITY_RESULTS,
 } from "./consts";
 
 const STORAGE_KEY = "ai-validation-workflow";
@@ -83,12 +85,14 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
   [WorkflowStep.GENERATE]: {
     ...initialState,
     step: 1,
+    activeFailureModes: DEFAULT_ACTIVE_FAILURE_MODES,
     modelConfig: DEFAULT_MODEL_CONFIG,
   },
   [WorkflowStep.REVIEW]: {
     ...initialState,
     step: 2,
     modelConfig: DEFAULT_MODEL_CONFIG,
+    activeFailureModes: DEFAULT_ACTIVE_FAILURE_MODES,
     questions: DEFAULT_QUESTIONS,
   },
   [WorkflowStep.COLLECT]: {
@@ -98,28 +102,23 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
     questions: DEFAULT_QUESTIONS,
   },
   [WorkflowStep.HUMAN_REVIEW]: {
+    ...initialState,
     step: 4,
     modelConfig: DEFAULT_MODEL_CONFIG,
-    categoryClassification: null,
-    activeFailureModes: [],
+    categoryClassification: DEFAULT_CLASSIFICATION,
+    activeFailureModes: DEFAULT_ACTIVE_FAILURE_MODES,
     questions: DEFAULT_QUESTIONS,
     responses: DEFAULT_RESPONSES,
-    goldenAnswers: [],
-    similarityResults: [],
-    citationCheckResults: null,
-    umlsValidationResults: null,
-    multiStepReasoningResults: null,
-    report: null,
   },
   [WorkflowStep.REPORT]: {
     step: 5,
     modelConfig: DEFAULT_MODEL_CONFIG,
-    categoryClassification: null,
-    activeFailureModes: [],
+    categoryClassification: DEFAULT_CLASSIFICATION,
+    activeFailureModes: DEFAULT_ACTIVE_FAILURE_MODES,
     questions: DEFAULT_QUESTIONS,
     responses: DEFAULT_RESPONSES,
     goldenAnswers: DEFAULT_GOLDEN_ANSWERS,
-    similarityResults: [],
+    similarityResults: DEFAULT_SIMILARITY_RESULTS,
     citationCheckResults: null,
     umlsValidationResults: null,
     multiStepReasoningResults: null,
