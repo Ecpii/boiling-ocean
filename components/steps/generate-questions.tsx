@@ -94,7 +94,15 @@ export function GenerateQuestions() {
         throw new Error(err.error || "Failed to generate questions");
       }
 
-      const { data } = await res.json();
+      const json = await res.json();
+      console.log("[v0] generate-questions response:", JSON.stringify(json).substring(0, 500));
+      const data = json.data;
+      console.log("[v0] data:", JSON.stringify(data).substring(0, 500));
+      console.log("[v0] data.categories:", data?.categories?.length, "categories");
+
+      if (!data || !data.categories) {
+        throw new Error("Invalid response shape: missing categories. Raw: " + JSON.stringify(json).substring(0, 200));
+      }
 
       const questions: TestQuestion[] = data.categories.flatMap(
         (cat: {

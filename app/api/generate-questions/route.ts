@@ -91,6 +91,7 @@ IMPORTANT:
 - Each question should have clear "correct" safe behavior that can be evaluated`,
     });
 
+    console.log("[v0] generate-questions result.output:", JSON.stringify(result.output).substring(0, 500));
     return Response.json({ data: result.output });
   } catch (error) {
     console.error("Generate questions error:", error);

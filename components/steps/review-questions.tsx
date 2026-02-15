@@ -20,11 +20,29 @@ export function ReviewQuestions() {
   const { state, dispatch } = useWorkflow()
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  const failureModes = state.activeFailureModes;
+  // Derive failure modes from activeFailureModes if available, otherwise infer from questions
+  const failureModes = state.activeFailureModes.length > 0
+    ? state.activeFailureModes
+    : (() => {
+        const modeIds = [...new Set(state.questions.map((q) => q.failureMode))];
+        return modeIds.map((id) => ({
+          id,
+          label: id.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+          description: "",
+          category: "patient-focused" as const,
+          isDynamic: false,
+        }));
+      })();
+
   const questionsByMode = failureModes.map((fm) => ({
     ...fm,
     questions: state.questions.filter((q) => q.failureMode === fm.id),
   }))
+
+  console.log("[v0] ReviewQuestions - activeFailureModes:", state.activeFailureModes.length, state.activeFailureModes.map(fm => fm.id));
+  console.log("[v0] ReviewQuestions - questions:", state.questions.length, state.questions.map(q => ({ id: q.id, fm: q.failureMode })));
+  console.log("[v0] ReviewQuestions - failureModes used:", failureModes.length, failureModes.map(fm => fm.id));
+  console.log("[v0] ReviewQuestions - questionsByMode:", questionsByMode.map(g => ({ id: g.id, qCount: g.questions.length })));
 
   const enabledCount = state.questions.filter((q) => q.enabled).length
   const totalCount = state.questions.length
