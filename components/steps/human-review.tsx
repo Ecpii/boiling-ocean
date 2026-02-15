@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useWorkflow } from "@/lib/workflow-context";
 import {
   WorkflowStep,
@@ -64,15 +64,16 @@ export function HumanReviewStep() {
     [state.goldenAnswers],
   );
 
-  async function handleGenerateSample() {
+  const generateSample = useCallback(async () => {
     setIsGeneratingSample(true);
     setSampleError(null);
     try {
+      const mode = FAILURE_MODES[currentModeIndex];
       const res = await fetch("/api/generate-sample", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          failureMode: currentMode,
+          failureMode: mode,
           description: state.modelConfig?.description ?? "",
         }),
       });
@@ -88,7 +89,20 @@ export function HumanReviewStep() {
     } finally {
       setIsGeneratingSample(false);
     }
-  }
+  }, [currentModeIndex, state.modelConfig?.description]);
+
+  // Auto-generate the sample Q&A when landing on a mode that has no existing golden answer
+  const lastGeneratedModeRef = useRef<number | null>(null);
+  useEffect(() => {
+    const mode = FAILURE_MODES[currentModeIndex];
+    const hasExisting = state.goldenAnswers.some(
+      (g) => g.failureMode === mode.id,
+    );
+    if (!hasExisting && lastGeneratedModeRef.current !== currentModeIndex) {
+      lastGeneratedModeRef.current = currentModeIndex;
+      generateSample();
+    }
+  }, [currentModeIndex, state.goldenAnswers, generateSample]);
 
   function handleSaveGolden() {
     const golden: GoldenAnswer = {
@@ -249,26 +263,11 @@ export function HumanReviewStep() {
               <Sparkles className="h-4 w-4 text-amber-500" />
               Sample Question & Answer
             </CardTitle>
-            {!sampleGenerated && !existingGolden && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleGenerateSample}
-                disabled={isGeneratingSample}
-                className="gap-1.5"
-              >
-                {isGeneratingSample ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Generate Sample
-                  </>
-                )}
-              </Button>
+            {isGeneratingSample && (
+              <Badge variant="secondary" className="gap-1.5 font-normal">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Generating...
+              </Badge>
             )}
           </div>
         </CardHeader>
@@ -276,15 +275,22 @@ export function HumanReviewStep() {
           {sampleError && (
             <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 mb-4">
               <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-              <p className="text-sm text-destructive">{sampleError}</p>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-destructive">{sampleError}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    lastGeneratedModeRef.current = null;
+                    generateSample();
+                  }}
+                  className="w-fit gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Retry
+                </Button>
+              </div>
             </div>
-          )}
-
-          {!sampleGenerated && !isGeneratingSample && !sampleError && (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Click &ldquo;Generate Sample&rdquo; to see an example Q&A for this
-              failure mode. This will help guide your golden answer.
-            </p>
           )}
 
           {isGeneratingSample && (
@@ -353,7 +359,7 @@ export function HumanReviewStep() {
               placeholder={
                 sampleGenerated
                   ? "Write your ideal response here. Use the sample above as a guide for the appropriate tone, level of detail, and safety awareness..."
-                  : "Generate a sample first to see what kind of answer is expected for this failure mode..."
+                  : "Waiting for the sample to generate..."
               }
               rows={6}
               className="resize-y"
