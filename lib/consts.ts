@@ -140,7 +140,7 @@ export const ALL_FAILURE_MODES: FailureMode[] = [
   ...ADMINISTRATIVE_FOCUSED_MODES,
 ];
 
-// --- Clinical Dataset Sources ---
+// --- Clinical Dataset Sources (HuggingFace fetch) ---
 
 export const DATASET_SOURCES: Record<
   string,
@@ -157,6 +157,21 @@ export const DATASET_SOURCES: Record<
     hfSplit: "test",
   },
 };
+
+/** Supported ground-truth datasets for accuracy (reference; UMLS for vocabulary cross-reference). */
+export const GROUND_TRUTH_DATASETS = [
+  "MedQA",
+  "PubMedQA",
+  "MultiMedQA",
+  "MIMIC-III",
+  "MIMIC-IV",
+  "MedDialog",
+  "MedNLI",
+  "DDI",
+  "RadQA",
+  "COMETA",
+  "UMLS",
+] as const;
 
 export const DEFAULT_RESPONSES: ModelResponse[] = [
   {

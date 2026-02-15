@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 
 const MAX_TURNS = 3;
+/** How many questions to run at once (parallel collection). Tune down if you hit rate limits. */
+const CONCURRENCY = 5;
 
 export function CollectResponses() {
   const { state, dispatch } = useWorkflow();
@@ -23,6 +25,7 @@ export function CollectResponses() {
   const [completedCount, setCompletedCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [inFlight, setInFlight] = useState(0);
 
   const enabledQuestions = state.questions.filter(
     (q) => q.enabled && q.text.trim(),
@@ -41,92 +44,104 @@ export function CollectResponses() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function collectAllResponses() {
-    setIsLoading(true);
+  async function collectOneQuestion(
+    q: (typeof enabledQuestions)[0],
+  ): Promise<ModelResponse | null> {
+    const modeLabel =
+      state.activeFailureModes.find((fm) => fm.id === q.failureMode)?.label ??
+      q.failureMode;
 
-    const responses: ModelResponse[] = [];
+    const turns: ConversationTurn[] = [];
+    const hasGroundTruth = Boolean(q.groundTruth?.trim());
+    const res1 = await fetch("/api/run-model", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: state.modelConfig!.provider,
+        modelId: state.modelConfig!.modelId,
+        question: q.text,
+        conversationHistory: [],
+        requestConfidence: hasGroundTruth,
+      }),
+    });
+    if (!res1.ok) throw new Error("Model request failed");
+    const res1Json = await res1.json();
+    const answer1 = res1Json.response;
+    const confidenceScore = hasGroundTruth ? res1Json.confidenceScore : undefined;
+    turns.push({ role: "user", content: q.text });
+    turns.push({ role: "assistant", content: answer1 });
 
-    for (let i = 0; i < enabledQuestions.length; i++) {
-      const q = enabledQuestions[i];
-      const modeLabel =
-        state.activeFailureModes.find((fm) => fm.id === q.failureMode)?.label ??
-        q.failureMode;
-      setCurrentQuestion(q.text);
-      setCurrentMode(modeLabel);
-
+    for (let turn = 1; turn < MAX_TURNS; turn++) {
       try {
-        const turns: ConversationTurn[] = [];
-
-        // Turn 1: send the original question
-        const res1 = await fetch("/api/run-model", {
+        const followUpRes = await fetch("/api/generate-followup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question: q.text,
+            response: answer1,
+            failureMode: modeLabel,
+          }),
+        });
+        if (!followUpRes.ok) break;
+        const { followUp } = await followUpRes.json();
+        const modelRes = await fetch("/api/run-model", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             provider: state.modelConfig!.provider,
             modelId: state.modelConfig!.modelId,
-            question: q.text,
-            conversationHistory: [],
+            question: followUp,
+            conversationHistory: turns,
           }),
         });
-
-        if (!res1.ok) throw new Error("Model request failed");
-        const { response: answer1 } = await res1.json();
-        turns.push({ role: "user", content: q.text });
-        turns.push({ role: "assistant", content: answer1 });
-
-        // Turns 2-3: generate follow-ups via the judge
-        for (let turn = 1; turn < MAX_TURNS; turn++) {
-          try {
-            const followUpRes = await fetch("/api/generate-followup", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                question: q.text,
-                response: answer1,
-                failureMode: modeLabel,
-              }),
-            });
-
-            if (!followUpRes.ok) break;
-            const { followUp } = await followUpRes.json();
-
-            const modelRes = await fetch("/api/run-model", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                provider: state.modelConfig!.provider,
-                modelId: state.modelConfig!.modelId,
-                question: followUp,
-                conversationHistory: turns,
-              }),
-            });
-
-            if (!modelRes.ok) break;
-            const { response: followUpAnswer } = await modelRes.json();
-            turns.push({ role: "user", content: followUp });
-            turns.push({ role: "assistant", content: followUpAnswer });
-          } catch {
-            break; // follow-up failed, continue with what we have
-          }
-        }
-
-        const modelResponse: ModelResponse = {
-          questionId: q.id,
-          question: q.text,
-          failureMode: q.failureMode,
-          turns,
-        };
-        responses.push(modelResponse);
-        dispatch({ type: "ADD_RESPONSE", response: modelResponse });
-        setCompletedCount((c) => c + 1);
+        if (!modelRes.ok) break;
+        const { response: followUpAnswer } = await modelRes.json();
+        turns.push({ role: "user", content: followUp });
+        turns.push({ role: "assistant", content: followUpAnswer });
       } catch {
-        setFailedCount((c) => c + 1);
+        break;
       }
     }
 
+    return {
+      questionId: q.id,
+      question: q.text,
+      failureMode: q.failureMode,
+      turns,
+      ...(confidenceScore != null && { confidenceScore }),
+    };
+  }
+
+  async function collectAllResponses() {
+    setIsLoading(true);
+    setCurrentQuestion(`Running up to ${CONCURRENCY} questions in parallel…`);
+    setCurrentMode("");
+
+    for (let i = 0; i < enabledQuestions.length; i += CONCURRENCY) {
+      const chunk = enabledQuestions.slice(i, i + CONCURRENCY);
+      setInFlight(chunk.length);
+      setCurrentMode(`Batch ${Math.floor(i / CONCURRENCY) + 1} of ${Math.ceil(enabledQuestions.length / CONCURRENCY)}`);
+
+      const results = await Promise.allSettled(
+        chunk.map((q) => collectOneQuestion(q)),
+      );
+
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j];
+        if (r.status === "fulfilled" && r.value) {
+          dispatch({ type: "ADD_RESPONSE", response: r.value });
+          setCompletedCount((c) => c + 1);
+        } else {
+          setFailedCount((f) => f + 1);
+        }
+      }
+      setInFlight(0);
+    }
+
+    setCurrentQuestion("");
+    setCurrentMode("");
     setIsLoading(false);
 
-    // Auto-advance after a brief pause
     setTimeout(() => {
       dispatch({ type: "SET_STEP", step: WorkflowStep.HUMAN_REVIEW });
     }, 1500);
@@ -166,17 +181,24 @@ export function CollectResponses() {
             <Progress value={progressPercent} className="h-2" />
           </div>
 
-          {isLoading && currentQuestion && (
+          {isLoading && (
             <div className="rounded-lg border bg-background p-4">
               <div className="flex items-start gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-[hsl(var(--primary))] shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <Badge variant="outline" className="mb-2">
-                    {currentMode}
-                  </Badge>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {currentQuestion}
+                  {currentMode && (
+                    <Badge variant="outline" className="mb-2">
+                      {currentMode}
+                    </Badge>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {currentQuestion || "Collecting responses…"}
                   </p>
+                  {inFlight > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {inFlight} question{inFlight !== 1 ? "s" : ""} in progress
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

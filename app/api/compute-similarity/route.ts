@@ -1,7 +1,7 @@
 import { type GoldenAnswer, type ModelResponse, type SimilarityResult } from "@/lib/types"
 
 const HF_MODEL_URL =
-  "https://api-inference.huggingface.co/pipeline/feature-extraction/NeuML/pubmedbert-base-embeddings"
+  "https://router.huggingface.co/hf-inference/models/NeuML/pubmedbert-base-embeddings/pipeline/feature-extraction"
 
 function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0

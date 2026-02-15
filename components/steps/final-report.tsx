@@ -82,8 +82,12 @@ export function FinalReport() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           responses: state.responses,
+          questions: state.questions,
           similarityResults: state.similarityResults,
           goldenAnswers: state.goldenAnswers,
+          citationCheckResults: state.citationCheckResults ?? undefined,
+          umlsValidationResults: state.umlsValidationResults ?? undefined,
+          multiStepReasoningResults: state.multiStepReasoningResults ?? undefined,
           description: state.modelConfig!.description,
           activeFailureModes: state.activeFailureModes,
         }),
@@ -97,10 +101,11 @@ export function FinalReport() {
       const { data } = await res.json();
       dispatch({ type: "SET_REPORT", report: data as AuditReport });
       setIsLoading(false);
-    } catch (error) {
+    } catch (err) {
       setError(
-        error instanceof Error ? error.message : "Failed to generate report",
+        err instanceof Error ? err.message : "Failed to generate report",
       );
+      setIsLoading(false);
     }
   }
 
@@ -306,6 +311,59 @@ export function FinalReport() {
         </CardContent>
       </Card>
 
+      {/* Foundational metrics: data governance, PII, limitations, UMLS ref, helpfulness (similarity) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Foundational Metrics</CardTitle>
+          <CardDescription>
+            Data governance (PII, limitations), UMLS vocabulary cross-reference, and helpfulness (expert-aligned passage quality, e.g. PubMedBERT/BERTScore-style).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
+            <li>• Citation transparency and UMLS concept accuracy are reported in their sections above/below.</li>
+            <li>• Helpfulness (how well responses match expert ideal) is reflected in the Golden Answer Similarity and Score Breakdown (similarity %).</li>
+            <li>• Data governance (PII avoidance, stating limitations) is addressed in the Executive Summary when relevant.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      {/* Real-time score (0-100) and scoring breakdown — accuracy + similarity separate */}
+      {(report.realTimeScore != null || (report.scoringBreakdown && Object.keys(report.scoringBreakdown).length > 0)) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Score Breakdown (out of 100)</CardTitle>
+            <CardDescription>
+              Separate metrics: accuracy (ground truth), similarity (golden answer), citations. Real-time style aggregate.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              {report.realTimeScore != null && (
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl font-bold tabular-nums">{report.realTimeScore}</span>
+                  <span className="text-muted-foreground">/ 100</span>
+                </div>
+              )}
+              {report.scoringBreakdown && Object.keys(report.scoringBreakdown).length > 0 && (
+                <div className="flex flex-wrap gap-4">
+                  {Object.entries(report.scoringBreakdown).map(([key, value]) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground capitalize">
+                        {key.replace(/Pct$/, "")}
+                      </span>
+                      <Badge variant="secondary" className="tabular-nums">
+                        {typeof value === "number" ? value.toFixed(1) : value}%
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary */}
       <Card>
         <CardHeader>
@@ -406,6 +464,317 @@ export function FinalReport() {
                     </div>
                   </div>
                 );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Citation transparency */}
+      {report.citationResults && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Citation Transparency</CardTitle>
+            <CardDescription>
+              Whether responses cited sources (PMID) and had no uncited
+              references. Citations must be transparent and noted.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={report.citationResults.allTransparent ? "default" : "destructive"}
+                  className="text-sm"
+                >
+                  {report.citationResults.allTransparent ? "Yes" : "No"}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  All responses cite transparently:{" "}
+                  {report.citationResults.allTransparent
+                    ? "All responses have valid citations and no uncited references."
+                    : "Some responses have invalid PMIDs or uncited references."}
+                </span>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  Per response
+                </p>
+                <ul className="flex flex-col gap-1.5 text-sm">
+                  {report.citationResults.perResponse.map((r) => {
+                    const resp = state.responses.find((x) => x.questionId === r.questionId);
+                    const label = resp?.question?.slice(0, 50) ?? r.questionId;
+                    return (
+                      <li key={r.questionId} className="flex items-center gap-2">
+                        <Badge
+                          variant={r.citationsTransparentAndNoted ? "secondary" : "destructive"}
+                          className="shrink-0"
+                        >
+                          {r.citationsTransparentAndNoted ? "Yes" : "No"}
+                        </Badge>
+                        <span className="truncate text-muted-foreground" title={resp?.question}>
+                          {label}
+                          {label.length >= 50 ? "…" : ""}
+                        </span>
+                        {!r.citationsTransparentAndNoted && (
+                          <span className="text-xs text-destructive shrink-0">
+                            {r.invalidPmids?.length
+                              ? `${r.invalidPmids.length} invalid PMID(s)`
+                              : ""}
+                            {r.invalidPmids?.length && r.uncitedReferences?.length ? "; " : ""}
+                            {r.uncitedReferences?.length
+                              ? `${r.uncitedReferences.length} uncited ref(s)`
+                              : ""}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Confidence calibration (ECE, reliability diagram) */}
+      {report.calibrationResults && report.calibrationResults.bins.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Confidence Calibration (Reliability Diagram)</CardTitle>
+            <CardDescription>
+              For questions with ground truth: model confidence (1–100) vs actual
+              accuracy. Well-calibrated models have confidence close to accuracy.
+              ECE = Expected Calibration Error (lower is better). 5 bins.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">ECE</span>
+                <Badge variant="outline" className="tabular-nums">
+                  {(report.calibrationResults.ece * 100).toFixed(1)}%
+                </Badge>
+              </div>
+              <ChartContainer config={chartConfig} className="aspect-[4/3]">
+                <BarChart
+                  data={report.calibrationResults.bins.map((b) => ({
+                    bin: `${b.binMin}-${b.binMax}`,
+                    avgConfidence: Math.round(b.avgConfidence),
+                    accuracy: Math.round(b.accuracy * 100),
+                    count: b.count,
+                  }))}
+                  margin={{ left: 12, right: 12 }}
+                >
+                  <CartesianGrid horizontal={false} />
+                  <XAxis dataKey="bin" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(v) => `${v}%`}
+                        labelFormatter={(_, payload) =>
+                          payload?.[0]?.payload
+                            ? `Bin ${payload[0].payload.bin} (n=${payload[0].payload.count})`
+                            : ""
+                        }
+                      />
+                    }
+                  />
+                  <Bar
+                    dataKey="avgConfidence"
+                    name="Avg confidence"
+                    fill="hsl(var(--chart-1))"
+                    radius={[2, 2, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="accuracy"
+                    name="Accuracy"
+                    fill="hsl(var(--chart-2))"
+                    radius={[2, 2, 0, 0]}
+                  />
+                </BarChart>
+              </ChartContainer>
+              <p className="text-xs text-muted-foreground">
+                Blue = average confidence in bin; Green = actual accuracy in bin.
+                Gaps indicate miscalibration.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Multi-step reasoning: per-conversation analysis, aggregated */}
+      {report.multiStepReasoning && report.multiStepReasoning.perConversation?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Multi-Step Reasoning</CardTitle>
+            <CardDescription>
+              Each conversation analyzed separately; each step scored for usefulness and correctness. Scores aggregated in a statistically sound way (mean per conversation, then mean across).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Overall score</span>
+                <Badge variant="outline" className="tabular-nums">
+                  {report.multiStepReasoning.overallScore}/100
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">{report.multiStepReasoning.summary}</p>
+              <div className="rounded-lg border bg-muted/30 p-3 max-h-48 overflow-y-auto">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Per conversation</p>
+                <ul className="flex flex-col gap-1 text-sm">
+                  {report.multiStepReasoning.perConversation.slice(0, 15).map((c) => (
+                    <li key={c.questionId} className="flex items-center gap-2">
+                      <span className="truncate text-muted-foreground">{c.questionId}</span>
+                      <Badge variant="secondary" className="shrink-0 tabular-nums">
+                        {c.aggregateScore} (steps: {c.stepScores.join(", ")})
+                      </Badge>
+                    </li>
+                  ))}
+                  {report.multiStepReasoning.perConversation.length > 15 && (
+                    <li className="text-xs text-muted-foreground">
+                      +{report.multiStepReasoning.perConversation.length - 15} more
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Guideline adherence (separate section): 5 guidelines, Class I, keyword+LLM */}
+      {report.guidelineAdherence && report.guidelineAdherence.byGuideline?.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Guideline Adherence</CardTitle>
+            <CardDescription>
+              Adherence to 5 high-impact clinical guidelines (heart failure, diabetes, hypertension, atrial fibrillation, pneumonia) — Class I recommendations, keyword-based match.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">{report.guidelineAdherence.summary}</p>
+              <ul className="flex flex-col gap-3">
+                {report.guidelineAdherence.byGuideline.map((g) => (
+                  <li key={g.guideline} className="rounded-lg border p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">{g.guideline}</span>
+                      <Badge variant="outline" className="tabular-nums">
+                        {g.adherenceScore.toFixed(0)}% ({g.matched}/{g.total})
+                      </Badge>
+                    </div>
+                    {g.details?.length > 0 && (
+                      <ul className="text-xs text-muted-foreground list-disc list-inside">
+                        {g.details.slice(0, 3).map((d, i) => (
+                          <li key={i} className="truncate">{d}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* UMLS concept accuracy (per response and per failure mode) */}
+      {report.umlsConceptAccuracy && (
+        <Card>
+          <CardHeader>
+            <CardTitle>UMLS Concept Accuracy</CardTitle>
+            <CardDescription>
+              Medical terms in responses validated against the Unified Medical Language System (vocabulary cross-reference). Per response and per failure mode.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">{report.umlsConceptAccuracy.summary}</p>
+              {report.umlsConceptAccuracy.perFailureMode?.length > 0 && (
+                <div className="rounded-lg border p-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">By failure mode</p>
+                  <ul className="flex flex-wrap gap-2">
+                    {report.umlsConceptAccuracy.perFailureMode.map((m) => (
+                      <li key={m.failureMode}>
+                        <Badge variant="outline" className="tabular-nums">
+                          {m.failureMode}: {m.avgScorePct.toFixed(0)}% (n={m.responseCount})
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {report.umlsConceptAccuracy.perResponse?.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 p-3 max-h-48 overflow-y-auto">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Per response</p>
+                  <ul className="flex flex-col gap-1 text-sm">
+                    {report.umlsConceptAccuracy.perResponse.slice(0, 20).map((r) => (
+                      <li key={r.questionId} className="flex items-center gap-2">
+                        <span className="truncate text-muted-foreground">{r.questionId}</span>
+                        <Badge variant="secondary" className="shrink-0 tabular-nums">
+                          {r.validConcepts}/{r.totalConcepts} ({r.scorePct.toFixed(0)}%)
+                        </Badge>
+                      </li>
+                    ))}
+                    {report.umlsConceptAccuracy.perResponse.length > 20 && (
+                      <li className="text-xs text-muted-foreground">
+                        +{report.umlsConceptAccuracy.perResponse.length - 20} more
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Demographic disparity: accuracy by age/gender with diagrams */}
+      {report.demographicDisparity && Object.keys(report.demographicDisparity.byDimension).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Demographic Disparity (Accuracy by Variant)</CardTitle>
+            <CardDescription>
+              Accuracy disparity across demographic variants (age, gender). Same scenario, different wording only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">{report.demographicDisparity.summary}</p>
+              {Object.entries(report.demographicDisparity.byDimension).map(([dimension, rows]) => {
+                const chartData = rows.map((r) => ({
+                  name: r.value,
+                  accuracy: r.accuracyPct,
+                  count: r.count,
+                  correct: r.correct,
+                }))
+                return (
+                  <div key={dimension} className="rounded-lg border p-4">
+                    <h4 className="text-sm font-semibold capitalize mb-3">{dimension}</h4>
+                    <div className="flex flex-wrap gap-4 mb-3">
+                      {rows.map((r) => (
+                        <div key={r.value} className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">{r.value}</span>
+                          <Badge variant="outline" className="tabular-nums">
+                            {r.accuracyPct.toFixed(1)}% ({r.correct}/{r.count})
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                    <ChartContainer config={chartConfig} className="h-[200px]">
+                      <BarChart data={chartData} layout="vertical" margin={{ left: 60 }}>
+                        <CartesianGrid horizontal={false} />
+                        <XAxis type="number" domain={[0, 100]} />
+                        <YAxis type="category" dataKey="name" width={56} tick={{ fontSize: 10 }} />
+                        <ChartTooltip content={<ChartTooltipContent formatter={(v) => `${v}%`} />} />
+                        <Bar dataKey="accuracy" fill="hsl(var(--chart-2))" radius={[0, 2, 2, 0]} />
+                      </BarChart>
+                    </ChartContainer>
+                  </div>
+                )
               })}
             </div>
           </CardContent>

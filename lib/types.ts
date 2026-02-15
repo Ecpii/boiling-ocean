@@ -61,6 +61,14 @@ export interface FailureMode {
   datasetSource?: string;
 }
 
+/** Legacy failure mode IDs that have guideline snippets (for PubMedBERT alignment). */
+export type FailureModeId =
+  | "drug-interactions"
+  | "triage-recognition"
+  | "diagnostic-boundaries"
+  | "patient-privacy"
+  | "clinical-guidelines";
+
 export interface CategoryClassification {
   category: FailureModeCategory;
   reasoning: string;
@@ -95,6 +103,8 @@ export interface ModelResponse {
   question: string;
   failureMode: string;
   turns: ConversationTurn[];
+  /** 1-100 when question had groundTruth and confidence was requested. */
+  confidenceScore?: number;
 }
 
 export interface GoldenAnswer {
@@ -122,6 +132,14 @@ export interface CategoryScore {
   criticalFailures: string[];
 }
 
+/** Per-response citation check: PMID validation + uncited reference flag. */
+export interface CitationCheckResult {
+  questionId: string;
+  citationsTransparentAndNoted: boolean;
+  pmids: { pmid: string; valid: boolean }[];
+  uncitedReferences: string[];
+}
+
 export interface AuditReport {
   overallSafetyScore: number;
   summary: string;
@@ -139,6 +157,59 @@ export interface AuditReport {
     label: string;
     averageSimilarity: number;
   }[];
+  /** Citation transparency: yes/no per response and summary. */
+  citationResults?: {
+    allTransparent: boolean;
+    perResponse: { questionId: string; citationsTransparentAndNoted: boolean; invalidPmids?: string[]; uncitedReferences?: string[] }[];
+  };
+  /** Confidence calibration (ECE, 5 bins) when ground-truth questions have confidence scores. */
+  calibrationResults?: {
+    ece: number;
+    numBins: number;
+    bins: { binMin: number; binMax: number; avgConfidence: number; accuracy: number; count: number }[];
+  };
+  /** Demographic disparity: accuracy by dimension (age/gender) and value; all analysis levels for variants. */
+  demographicDisparity?: {
+    byDimension: Record<
+      string,
+      { value: string; accuracyPct: number; count: number; correct: number }[]
+    >;
+    summary: string;
+  };
+  /** Guideline adherence (5 guidelines, Class I); separate section. */
+  guidelineAdherence?: {
+    byGuideline: { guideline: string; adherenceScore: number; matched: number; total: number; details: string[] }[];
+    summary: string;
+  };
+  /** UMLS concept accuracy: per response and per failure mode. */
+  umlsConceptAccuracy?: {
+    perResponse: { questionId: string; validConcepts: number; totalConcepts: number; scorePct: number }[];
+    perFailureMode: { failureMode: string; avgScorePct: number; responseCount: number }[];
+    summary: string;
+  };
+  /** Multi-step reasoning: per-conversation analysis, aggregated. */
+  multiStepReasoning?: {
+    perConversation: { questionId: string; stepScores: number[]; aggregateScore: number }[];
+    overallScore: number;
+    summary: string;
+  };
+  /** Real-time / Grammarly-style score (0-100) and breakdown (accuracy + similarity). */
+  realTimeScore?: number;
+  scoringBreakdown?: { accuracyPct?: number; similarityPct?: number; citationPct?: number; umlsPct?: number; [key: string]: number | undefined };
+}
+
+/** UMLS concept validation result (per response and per failure mode). */
+export interface UmlsValidationResult {
+  perResponse: { questionId: string; failureMode: string; validConcepts: number; totalConcepts: number; scorePct: number }[];
+  perFailureMode: { failureMode: string; avgScorePct: number; responseCount: number }[];
+  summary: string;
+}
+
+/** Multi-step reasoning analysis (per conversation, aggregated). */
+export interface MultiStepReasoningResult {
+  perConversation: { questionId: string; stepScores: number[]; aggregateScore: number }[];
+  overallScore: number;
+  summary: string;
 }
 
 export interface WorkflowState {
@@ -150,5 +221,8 @@ export interface WorkflowState {
   responses: ModelResponse[];
   goldenAnswers: GoldenAnswer[];
   similarityResults: SimilarityResult[];
+  citationCheckResults: CitationCheckResult[] | null;
+  umlsValidationResults: UmlsValidationResult | null;
+  multiStepReasoningResults: MultiStepReasoningResult | null;
   report: AuditReport | null;
 }

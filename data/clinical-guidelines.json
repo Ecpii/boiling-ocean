@@ -1,0 +1,89 @@
+{
+  "guidelines": [
+    {
+      "id": "heart-failure",
+      "label": "Heart Failure (ACC/AHA/HFSA)",
+      "source": "2022 AHA/ACC/HFSA Guideline for the Management of Heart Failure",
+      "recommendations": [
+        { "class": "I", "text": "In patients with HFrEF, guideline-directed medical therapy (GDMT) that includes an ACE inhibitor, ARB, or ARNI; a beta-blocker; an MRA; and an SGLT2 inhibitor is recommended to reduce morbidity and mortality.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "In patients with HFrEF, ACE inhibitors are recommended to reduce morbidity and mortality.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "In patients with chronic HFrEF, beta-blockers (bisoprolol, carvedilol, or metoprolol succinate) are recommended to reduce morbidity and mortality.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "In patients with HFrEF (NYHA class II–IV) who remain symptomatic, an MRA is recommended to reduce morbidity and mortality.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "In patients with HFrEF, SGLT2 inhibitors are recommended to reduce hospitalization and mortality.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "Treatment of hypertension is recommended in patients with Stage A heart failure (at risk) to prevent development of HF.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "In patients with HF and fluid overload, diuretics are recommended to improve symptoms.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "In patients with HFrEF who are candidates for an ICD, ICD therapy is recommended for primary prevention of sudden cardiac death.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "Multidisciplinary heart failure disease-management programs are recommended for patients with HF to reduce hospitalization and mortality.", "source": "ACC/AHA/HFSA 2022" },
+        { "class": "I", "text": "In patients with HF, vaccination against influenza and pneumococcal disease is recommended.", "source": "ACC/AHA/HFSA 2022" }
+      ]
+    },
+    {
+      "id": "diabetes",
+      "label": "Diabetes (ADA)",
+      "source": "American Diabetes Association Standards of Medical Care in Diabetes",
+      "recommendations": [
+        { "class": "I", "text": "At least annual screening for diabetic kidney disease by estimating glomerular filtration rate and urinary albumin excretion is recommended for all patients with type 2 diabetes.", "source": "ADA Standards" },
+        { "class": "I", "text": "Metformin is the preferred initial pharmacologic agent for the treatment of type 2 diabetes.", "source": "ADA Standards" },
+        { "class": "I", "text": "For patients with type 2 diabetes and established atherosclerotic cardiovascular disease, an SGLT2 inhibitor or GLP-1 receptor agonist with demonstrated cardiovascular benefit is recommended.", "source": "ADA Standards" },
+        { "class": "I", "text": "In adults with overweight or obesity and type 2 diabetes, intensive lifestyle intervention that includes calorie restriction and increased physical activity is recommended to promote weight loss.", "source": "ADA Standards" },
+        { "class": "I", "text": "For patients with type 2 diabetes and diabetic kidney disease, an SGLT2 inhibitor with evidence of reducing kidney disease progression is recommended.", "source": "ADA Standards" },
+        { "class": "I", "text": "Blood pressure should be measured at every routine clinical visit. Patients with blood pressure ≥140/90 mmHg should have blood pressure confirmed on a separate day.", "source": "ADA Standards" },
+        { "class": "I", "text": "For patients with diabetes and hypertension, either an ACE inhibitor or an ARB is recommended for those with modestly elevated urinary albumin-to-creatinine ratio.", "source": "ADA Standards" },
+        { "class": "I", "text": "All patients with diabetes should be screened for distal symmetric polyneuropathy at diagnosis and at least annually thereafter.", "source": "ADA Standards" },
+        { "class": "I", "text": "Adults with type 1 or type 2 diabetes should be screened for diabetic retinopathy at diagnosis and at least annually thereafter.", "source": "ADA Standards" },
+        { "class": "I", "text": "Glycemic targets should be individualized; for many nonpregnant adults, an A1C goal of <7% is appropriate.", "source": "ADA Standards" }
+      ]
+    },
+    {
+      "id": "hypertension",
+      "label": "Hypertension (ACC/AHA)",
+      "source": "2017 ACC/AHA Guideline for the Prevention, Detection, Evaluation, and Management of High Blood Pressure",
+      "recommendations": [
+        { "class": "I", "text": "Adults with hypertension should be treated to a blood pressure goal of <130/80 mm Hg.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "Nonpharmacologic interventions including weight loss, DASH diet, sodium reduction, and increased physical activity are recommended for adults with elevated BP or hypertension.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "First-line antihypertensive agents include ACE inhibitors, ARBs, calcium channel blockers, and thiazide diuretics.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "In black adults with hypertension, initial antihypertensive treatment should include a thiazide diuretic or CCB.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "In adults with hypertension and chronic kidney disease, ACE inhibitors or ARBs are recommended.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "Blood pressure should be measured in the office with proper technique; out-of-office BP measurement is recommended to confirm the diagnosis of hypertension.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "In adults with hypertension and diabetes, target BP is <130/80 mm Hg.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "In adults with hypertension and heart failure with reduced ejection fraction, ACE inhibitors (or ARB or ARNI), beta-blockers, and MRAs are recommended.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "Lifestyle modification is recommended for all adults with elevated BP or hypertension.", "source": "ACC/AHA 2017" },
+        { "class": "I", "text": "Resistant hypertension is defined as BP that remains above goal despite concurrent use of 3 antihypertensive agents of different classes.", "source": "ACC/AHA 2017" }
+      ]
+    },
+    {
+      "id": "atrial-fibrillation",
+      "label": "Atrial Fibrillation (ACC/AHA/HRS)",
+      "source": "2019 AHA/ACC/HRS Focused Update of the 2014 Guideline for the Management of Atrial Fibrillation",
+      "recommendations": [
+        { "class": "I", "text": "Anticoagulation with warfarin or a DOAC is recommended in patients with AF and CHA2DS2-VASc score of 2 or greater in men or 3 or greater in women.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "In patients with AF and mechanical heart valves, warfarin is recommended.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "Rate control with a beta-blocker or non-dihydropyridine calcium channel blocker is recommended for symptomatic management in patients with AF.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "In patients with AF and hemodynamic instability, immediate cardioversion is recommended.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "In patients with AF of more than 48 hours or of unknown duration, anticoagulation for at least 3 weeks before and 4 weeks after cardioversion is recommended.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "Assessment of thromboembolic risk with CHA2DS2-VASc and bleeding risk with HAS-BLED is recommended for all patients with AF.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "In patients with AF and heart failure with reduced ejection fraction, a beta-blocker is recommended for rate control.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "Catheter ablation of AF is recommended in symptomatic patients with refractory AF who have failed antiarrhythmic drug therapy.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "In patients with AF, treatment of contributing factors such as hypertension, obesity, and sleep apnea is recommended.", "source": "ACC/AHA/HRS 2019" },
+        { "class": "I", "text": "DOACs are preferred over warfarin for most patients with nonvalvular AF, except in those with moderate to severe mitral stenosis or mechanical heart valves.", "source": "ACC/AHA/HRS 2019" }
+      ]
+    },
+    {
+      "id": "pneumonia",
+      "label": "Pneumonia (IDSA/ATS)",
+      "source": "IDSA/ATS Consensus Guidelines on the Management of Community-Acquired Pneumonia",
+      "recommendations": [
+        { "class": "I", "text": "For outpatients with CAP and no comorbidities, amoxicillin or doxycycline is recommended.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "For outpatients with CAP and comorbidities, a respiratory fluoroquinolone or beta-lactam plus macrolide is recommended.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "For inpatients with nonsevere CAP, a beta-lactam plus macrolide or a respiratory fluoroquinolone is recommended.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "For inpatients with severe CAP, a beta-lactam plus either a fluoroquinolone or macrolide is recommended.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "Blood cultures are recommended for adults with severe CAP before antibiotic therapy.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "Pneumococcal urinary antigen testing is recommended for adults with severe CAP.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "Legionella urinary antigen testing is recommended for adults with severe CAP.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "Antibiotic therapy should be initiated as soon as possible after diagnosis of CAP.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "For CAP caused by methicillin-resistant Staphylococcus aureus, vancomycin or linezolid is recommended.", "source": "IDSA/ATS CAP" },
+        { "class": "I", "text": "Influenza vaccination is recommended annually for all persons aged 6 months and older to prevent influenza and influenza-associated CAP.", "source": "IDSA/ATS CAP" }
+      ]
+    }
+  ]
+}

@@ -18,6 +18,9 @@ import {
   AuditReport,
   CategoryClassification,
   FailureMode,
+  CitationCheckResult,
+  UmlsValidationResult,
+  MultiStepReasoningResult,
 } from "./types";
 import {
   DEFAULT_DESCRIPTION,
@@ -46,6 +49,9 @@ type Action =
   | { type: "SET_ACTIVE_FAILURE_MODES"; modes: FailureMode[] }
   | { type: "ADD_GOLDEN_ANSWER"; goldenAnswer: GoldenAnswer }
   | { type: "SET_SIMILARITY_RESULTS"; results: SimilarityResult[] }
+  | { type: "SET_CITATION_CHECK_RESULTS"; results: CitationCheckResult[] }
+  | { type: "SET_UMLS_VALIDATION_RESULTS"; results: UmlsValidationResult }
+  | { type: "SET_MULTI_STEP_REASONING_RESULTS"; results: MultiStepReasoningResult }
   | { type: "SET_REPORT"; report: AuditReport }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
@@ -62,6 +68,9 @@ const initialState: WorkflowState = {
   responses: [],
   goldenAnswers: [],
   similarityResults: [],
+  citationCheckResults: null,
+  umlsValidationResults: null,
+  multiStepReasoningResults: null,
   report: null,
 };
 
@@ -93,6 +102,9 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
     responses: DEFAULT_RESPONSES,
     goldenAnswers: [],
     similarityResults: [],
+    citationCheckResults: null,
+    umlsValidationResults: null,
+    multiStepReasoningResults: null,
     report: null,
   },
   [WorkflowStep.REPORT]: {
@@ -104,6 +116,9 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
     responses: DEFAULT_RESPONSES,
     goldenAnswers: [],
     similarityResults: [],
+    citationCheckResults: null,
+    umlsValidationResults: null,
+    multiStepReasoningResults: null,
     report: DEFAULT_REPORT,
   },
 };
@@ -164,6 +179,21 @@ function reducer(state: WorkflowState, action: Action): WorkflowState {
         ...state,
         similarityResults: action.results,
       };
+    case "SET_CITATION_CHECK_RESULTS":
+      return {
+        ...state,
+        citationCheckResults: action.results,
+      };
+    case "SET_UMLS_VALIDATION_RESULTS":
+      return {
+        ...state,
+        umlsValidationResults: action.results,
+      };
+    case "SET_MULTI_STEP_REASONING_RESULTS":
+      return {
+        ...state,
+        multiStepReasoningResults: action.results,
+      };
     case "SET_REPORT":
       return { ...state, report: action.report };
     case "RESET":
@@ -193,8 +223,17 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as WorkflowState;
-        dispatch({ type: "HYDRATE", state: parsed });
+        const parsed = JSON.parse(saved) as Partial<WorkflowState>;
+        dispatch({
+          type: "HYDRATE",
+          state: {
+            ...initialState,
+            ...parsed,
+            citationCheckResults: parsed.citationCheckResults ?? null,
+            umlsValidationResults: parsed.umlsValidationResults ?? null,
+            multiStepReasoningResults: parsed.multiStepReasoningResults ?? null,
+          } as WorkflowState,
+        });
       }
     } catch {
       // ignore parse errors

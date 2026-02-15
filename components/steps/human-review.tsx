@@ -21,17 +21,23 @@ import {
   AlertCircle,
 } from "lucide-react";
 
+const SAMPLE_CONCURRENCY = 5;
+
 export function HumanReviewStep() {
   const { state, dispatch } = useWorkflow();
   const [currentModeIndex, setCurrentModeIndex] = useState(0);
   const [goldenText, setGoldenText] = useState("");
   const [sampleQuestion, setSampleQuestion] = useState("");
   const [sampleAnswer, setSampleAnswer] = useState("");
-  const [isGeneratingSample, setIsGeneratingSample] = useState(false);
   const [isComputingSimilarity, setIsComputingSimilarity] = useState(false);
   const [sampleGenerated, setSampleGenerated] = useState(false);
   const [sampleError, setSampleError] = useState<string | null>(null);
   const [similarityError, setSimilarityError] = useState<string | null>(null);
+  /** Cached samples per failure mode id — populated once concurrently, never re-fetched on tab switch */
+  const [sampleCache, setSampleCache] = useState<Record<string, { question: string; answer: string }>>({});
+  const [samplesLoading, setSamplesLoading] = useState(true);
+  const [samplesLoadedCount, setSamplesLoadedCount] = useState(0);
+  const samplesStartedRef = useRef(false);
 
   const failureModes = state.activeFailureModes;
   const currentMode = failureModes[currentModeIndex];
@@ -51,20 +57,87 @@ export function HumanReviewStep() {
         setSampleQuestion(existing.sampleQuestion);
         setSampleAnswer(existing.sampleAnswer);
         setSampleGenerated(true);
+        setSampleError(null);
       } else {
-        setGoldenText("");
-        setSampleQuestion("");
-        setSampleAnswer("");
-        setSampleGenerated(false);
+        const cached = sampleCache[mode.id];
+        if (cached) {
+          setGoldenText("");
+          setSampleQuestion(cached.question);
+          setSampleAnswer(cached.answer);
+          setSampleGenerated(true);
+          setSampleError(null);
+        } else {
+          setGoldenText("");
+          setSampleQuestion("");
+          setSampleAnswer("");
+          setSampleGenerated(false);
+          setSampleError(null);
+        }
       }
-      setSampleError(null);
       setSimilarityError(null);
     },
-    [state.goldenAnswers],
+    [state.goldenAnswers, failureModes, sampleCache],
   );
 
+  // Generate all samples concurrently on mount (once); cache so tab switches don't re-prompt
+  useEffect(() => {
+    if (samplesStartedRef.current) return;
+    samplesStartedRef.current = true;
+    if (failureModes.length === 0) {
+      setSamplesLoading(false);
+      return;
+    }
+
+    const toFetch = failureModes.filter(
+      (mode) => !state.goldenAnswers.some((g) => g.failureMode === mode.id),
+    );
+    if (toFetch.length === 0) {
+      setSamplesLoading(false);
+      return;
+    }
+
+    const description = state.modelConfig?.description ?? "";
+
+    const runChunk = async (chunk: typeof failureModes) => {
+      const results = await Promise.allSettled(
+        chunk.map(async (mode) => {
+          const res = await fetch("/api/generate-sample", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              failureMode: mode,
+              description,
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || "Failed to generate sample");
+          return { modeId: mode.id, question: json.data.question, answer: json.data.answer };
+        }),
+      );
+      results.forEach((r) => {
+        if (r.status === "fulfilled" && r.value) {
+          const { modeId, question, answer } = r.value;
+          setSampleCache((prev) => ({ ...prev, [modeId]: { question, answer } }));
+          setSamplesLoadedCount((c) => c + 1);
+        }
+      });
+    };
+
+    (async () => {
+      for (let i = 0; i < toFetch.length; i += SAMPLE_CONCURRENCY) {
+        const chunk = toFetch.slice(i, i + SAMPLE_CONCURRENCY);
+        await runChunk(chunk);
+      }
+      setSamplesLoading(false);
+    })();
+  }, [failureModes, state.goldenAnswers]);
+
+  // When cache or golden answers change, sync current tab content
+  useEffect(() => {
+    loadExistingIfPresent(currentModeIndex);
+  }, [currentModeIndex, loadExistingIfPresent]);
+
   const generateSample = useCallback(async () => {
-    setIsGeneratingSample(true);
     setSampleError(null);
     try {
       const mode = failureModes[currentModeIndex];
@@ -78,30 +151,17 @@ export function HumanReviewStep() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to generate sample");
-      setSampleQuestion(json.data.question);
-      setSampleAnswer(json.data.answer);
+      const { question, answer } = json.data;
+      setSampleCache((prev) => ({ ...prev, [mode.id]: { question, answer } }));
+      setSampleQuestion(question);
+      setSampleAnswer(answer);
       setSampleGenerated(true);
     } catch (err) {
       setSampleError(
         err instanceof Error ? err.message : "Failed to generate sample",
       );
-    } finally {
-      setIsGeneratingSample(false);
     }
-  }, [currentModeIndex, state.modelConfig?.description]);
-
-  // Auto-generate the sample Q&A when landing on a mode that has no existing golden answer
-  const lastGeneratedModeRef = useRef<number | null>(null);
-  useEffect(() => {
-    const mode = failureModes[currentModeIndex];
-    const hasExisting = state.goldenAnswers.some(
-      (g) => g.failureMode === mode.id,
-    );
-    if (!hasExisting && lastGeneratedModeRef.current !== currentModeIndex) {
-      lastGeneratedModeRef.current = currentModeIndex;
-      generateSample();
-    }
-  }, [currentModeIndex, state.goldenAnswers, generateSample]);
+  }, [currentModeIndex, state.modelConfig?.description, failureModes]);
 
   function handleSaveGolden() {
     const golden: GoldenAnswer = {
@@ -177,6 +237,49 @@ export function HumanReviewStep() {
       if (!res.ok)
         throw new Error(json.error || "Failed to compute similarity");
       dispatch({ type: "SET_SIMILARITY_RESULTS", results: json.data });
+
+      // Citation check: last assistant turn per response
+      const citationPayload = state.responses.map((r) => {
+        const lastAssistant = r.turns.filter((t) => t.role === "assistant").pop();
+        return { questionId: r.questionId, text: lastAssistant?.content ?? "" };
+      });
+      const citeRes = await fetch("/api/citation-check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ responses: citationPayload }),
+      });
+      if (citeRes.ok) {
+        const citeJson = await citeRes.json();
+        dispatch({ type: "SET_CITATION_CHECK_RESULTS", results: citeJson.data });
+      }
+
+      // UMLS concept validation (optional; requires UMLS_API_KEY)
+      const umlsPayload = state.responses.map((r) => {
+        const lastAssistant = r.turns.filter((t) => t.role === "assistant").pop();
+        return { questionId: r.questionId, failureMode: r.failureMode, text: lastAssistant?.content ?? "" };
+      });
+      const umlsRes = await fetch("/api/umls-validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ responses: umlsPayload }),
+      });
+      if (umlsRes.ok) {
+        const umlsJson = await umlsRes.json();
+        dispatch({ type: "SET_UMLS_VALIDATION_RESULTS", results: umlsJson.data });
+      }
+
+      const multiStepRes = await fetch("/api/multi-step-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          responses: state.responses.map((r) => ({ questionId: r.questionId, turns: r.turns })),
+        }),
+      });
+      if (multiStepRes.ok) {
+        const multiStepJson = await multiStepRes.json();
+        dispatch({ type: "SET_MULTI_STEP_REASONING_RESULTS", results: multiStepJson.data });
+      }
+
       dispatch({ type: "SET_STEP", step: WorkflowStep.REPORT });
     } catch (err) {
       setSimilarityError(
@@ -262,10 +365,12 @@ export function HumanReviewStep() {
               <Sparkles className="h-4 w-4 text-amber-500" />
               Sample Question & Answer
             </CardTitle>
-            {isGeneratingSample && (
+            {samplesLoading && (
               <Badge variant="secondary" className="gap-1.5 font-normal">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Generating...
+                {samplesLoadedCount > 0
+                  ? `${samplesLoadedCount}/${failureModes.length} ready`
+                  : "Generating all samples…"}
               </Badge>
             )}
           </div>
@@ -279,10 +384,7 @@ export function HumanReviewStep() {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => {
-                    lastGeneratedModeRef.current = null;
-                    generateSample();
-                  }}
+                  onClick={() => generateSample()}
                   className="w-fit gap-1.5"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
@@ -292,11 +394,14 @@ export function HumanReviewStep() {
             </div>
           )}
 
-          {isGeneratingSample && (
+          {samplesLoading && !sampleGenerated && (
             <div className="flex flex-col items-center gap-3 py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                Generating a sample question and ideal answer...
+                Generating samples for all failure modes (up to {SAMPLE_CONCURRENCY} at a time)…
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Switching tabs won’t re-prompt; samples are cached.
               </p>
             </div>
           )}
