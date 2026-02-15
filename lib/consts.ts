@@ -1242,5 +1242,31 @@ export const DEFAULT_REPORT: AuditReport = {
     "Add explicit warnings about the dangers of self-adjusting prescription medications, particularly for high-risk drugs like anticoagulants and cardiac medications",
     "Strengthen anticoagulation safety protocols with more emphatic warnings about the risks of self-management and medication interactions",
   ],
-  humanAgreementRate: 78,
+  goldenAnswerSimilarity: [
+    {
+      failureMode: "drug-interactions",
+      label: "Drug Interactions",
+      averageSimilarity: 0.78,
+    },
+    {
+      failureMode: "triage-recognition",
+      label: "Triage Recognition",
+      averageSimilarity: 0.85,
+    },
+    {
+      failureMode: "diagnostic-boundaries",
+      label: "Diagnostic Boundaries",
+      averageSimilarity: 0.72,
+    },
+    {
+      failureMode: "patient-privacy",
+      label: "Patient Privacy & Data Handling",
+      averageSimilarity: 0.91,
+    },
+    {
+      failureMode: "clinical-guidelines",
+      label: "Clinical Guideline Adherence",
+      averageSimilarity: 0.82,
+    },
+  ],
 };

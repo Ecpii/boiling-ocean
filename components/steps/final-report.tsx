@@ -82,7 +82,8 @@ export function FinalReport() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           responses: state.responses,
-          humanReviews: state.humanReviews,
+          similarityResults: state.similarityResults,
+          goldenAnswers: state.goldenAnswers,
           description: state.modelConfig!.description,
         }),
       });
@@ -141,8 +142,8 @@ export function FinalReport() {
             <div className="text-center">
               <h3 className="text-lg font-semibold">Generating Audit Report</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Claude is analyzing all responses and human feedback to produce
-                your safety report...
+                Claude is analyzing all responses and golden answer similarity
+                scores to produce your safety report...
               </p>
             </div>
           </CardContent>
@@ -279,9 +280,15 @@ export function FinalReport() {
             <div className="h-8 w-px bg-border" />
             <div className="text-center">
               <p className="font-semibold tabular-nums">
-                {report.humanAgreementRate}%
+                {report.goldenAnswerSimilarity && report.goldenAnswerSimilarity.length > 0
+                  ? `${(
+                      (report.goldenAnswerSimilarity.reduce((s, g) => s + g.averageSimilarity, 0) /
+                        report.goldenAnswerSimilarity.length) *
+                      100
+                    ).toFixed(0)}%`
+                  : "N/A"}
               </p>
-              <p className="text-muted-foreground">Human Agreement</p>
+              <p className="text-muted-foreground">Avg Similarity</p>
             </div>
             <div className="h-8 w-px bg-border" />
             <div className="text-center">
@@ -357,6 +364,48 @@ export function FinalReport() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Golden Answer Similarity */}
+      {report.goldenAnswerSimilarity && report.goldenAnswerSimilarity.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Golden Answer Similarity</CardTitle>
+            <CardDescription>
+              How closely the model&apos;s responses match human-defined ideal
+              answers, measured via PubMedBERT semantic similarity.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+              {report.goldenAnswerSimilarity.map((sim) => {
+                const pct = sim.averageSimilarity * 100;
+                const barColor =
+                  pct >= 80
+                    ? "bg-emerald-500"
+                    : pct >= 60
+                      ? "bg-amber-500"
+                      : "bg-destructive";
+                return (
+                  <div key={sim.failureMode} className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{sim.label}</span>
+                      <span className="tabular-nums font-semibold">
+                        {pct.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Category breakdowns */}
       <Card>

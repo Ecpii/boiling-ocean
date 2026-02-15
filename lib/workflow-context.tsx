@@ -13,7 +13,8 @@ import {
   ModelConfig,
   TestQuestion,
   ModelResponse,
-  HumanReview,
+  GoldenAnswer,
+  SimilarityResult,
   AuditReport,
 } from "./types";
 import {
@@ -35,7 +36,8 @@ type Action =
   | { type: "REMOVE_QUESTION"; id: string }
   | { type: "SET_RESPONSES"; responses: ModelResponse[] }
   | { type: "ADD_RESPONSE"; response: ModelResponse }
-  | { type: "ADD_HUMAN_REVIEW"; review: HumanReview }
+  | { type: "ADD_GOLDEN_ANSWER"; goldenAnswer: GoldenAnswer }
+  | { type: "SET_SIMILARITY_RESULTS"; results: SimilarityResult[] }
   | { type: "SET_REPORT"; report: AuditReport }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
@@ -48,7 +50,8 @@ const initialState: WorkflowState = {
   modelConfig: null,
   questions: [],
   responses: [],
-  humanReviews: [],
+  goldenAnswers: [],
+  similarityResults: [],
   report: null,
 };
 
@@ -96,7 +99,8 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
     },
     questions: DEFAULT_QUESTIONS,
     responses: DEFAULT_RESPONSES,
-    humanReviews: [],
+    goldenAnswers: [],
+    similarityResults: [],
     report: null,
   },
   [WorkflowStep.REPORT]: {
@@ -109,7 +113,8 @@ const DEBUG_DEFAULT_STEP_STATES: Record<WorkflowStep, WorkflowState> = {
     },
     questions: DEFAULT_QUESTIONS,
     responses: DEFAULT_RESPONSES,
-    humanReviews: [], // todo: change
+    goldenAnswers: [],
+    similarityResults: [],
     report: DEFAULT_REPORT,
   },
 };
@@ -147,15 +152,20 @@ function reducer(state: WorkflowState, action: Action): WorkflowState {
       return { ...state, responses: action.responses };
     case "ADD_RESPONSE":
       return { ...state, responses: [...state.responses, action.response] };
-    case "ADD_HUMAN_REVIEW":
+    case "ADD_GOLDEN_ANSWER":
       return {
         ...state,
-        humanReviews: [
-          ...state.humanReviews.filter(
-            (r) => r.responseId !== action.review.responseId,
+        goldenAnswers: [
+          ...state.goldenAnswers.filter(
+            (g) => g.failureMode !== action.goldenAnswer.failureMode,
           ),
-          action.review,
+          action.goldenAnswer,
         ],
+      };
+    case "SET_SIMILARITY_RESULTS":
+      return {
+        ...state,
+        similarityResults: action.results,
       };
     case "SET_REPORT":
       return { ...state, report: action.report };
