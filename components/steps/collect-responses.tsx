@@ -14,8 +14,64 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
 
 const MAX_TURNS = 3;
-/** How many questions to run at once (parallel collection). Tune down if you hit rate limits. */
-const CONCURRENCY = 5;
+const MAX_RETRIES = 5;
+const INITIAL_RETRY_DELAY = 2000; // 2 seconds
+const BATCH_SIZE = 3; // Process 3 questions at a time
+const BATCH_DELAY = 1000; // Wait 1s between batches
+
+/**
+ * Retry a fetch request with exponential backoff for rate limit errors
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retryCount = 0,
+): Promise<Response> {
+  const response = await fetch(url, options);
+
+  // If successful or non-retriable error, return immediately
+  if (response.ok || retryCount >= MAX_RETRIES) {
+    return response;
+  }
+
+  // Check if this is a rate limit error
+  const isRateLimit = response.status === 429 ||
+    (response.status === 500 && await isRateLimitError(response.clone()));
+
+  if (!isRateLimit) {
+    return response;
+  }
+
+  // Calculate exponential backoff with jitter
+  const backoffDelay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+  const jitter = Math.random() * 1000; // Add up to 1s of random jitter
+  const delay = backoffDelay + jitter;
+
+  console.log(`Rate limit hit, retrying in ${Math.round(delay)}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+
+  // Wait before retrying
+  await new Promise((resolve) => setTimeout(resolve, delay));
+
+  // Retry the request
+  return fetchWithRetry(url, options, retryCount + 1);
+}
+
+/**
+ * Check if the error response is a rate limit error based on message content
+ */
+async function isRateLimitError(response: Response): Promise<boolean> {
+  try {
+    const data = await response.json();
+    return (
+      data.error &&
+      typeof data.error === "string" &&
+      (data.error.includes("rate limit") ||
+       data.error.includes("Free credits temporarily"))
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function CollectResponses() {
   const { state, dispatch } = useWorkflow();
@@ -51,6 +107,7 @@ export function CollectResponses() {
       state.activeFailureModes.find((fm) => fm.id === q.failureMode)?.label ??
       q.failureMode;
 
+<<<<<<< Updated upstream
     const turns: ConversationTurn[] = [];
     const hasGroundTruth = Boolean(q.groundTruth?.trim());
     const res1 = await fetch("/api/run-model", {
@@ -70,9 +127,31 @@ export function CollectResponses() {
     const confidenceScore = hasGroundTruth ? res1Json.confidenceScore : undefined;
     turns.push({ role: "user", content: q.text });
     turns.push({ role: "assistant", content: answer1 });
+||||||| Stash base
+    const responses: ModelResponse[] = [];
+
+    for (let i = 0; i < enabledQuestions.length; i++) {
+      const q = enabledQuestions[i];
+      const modeLabel =
+        FAILURE_MODES.find((fm) => fm.id === q.failureMode)?.label ??
+        q.failureMode;
+      setCurrentQuestion(q.text);
+      setCurrentMode(modeLabel);
+=======
+    // Helper function to process a single question
+    async function processQuestion(q: typeof enabledQuestions[number]) {
+      const modeLabel =
+        FAILURE_MODES.find((fm) => fm.id === q.failureMode)?.label ??
+        q.failureMode;
+
+      // Update UI to show we're processing this question
+      setCurrentQuestion(q.text);
+      setCurrentMode(modeLabel);
+>>>>>>> Stashed changes
 
     for (let turn = 1; turn < MAX_TURNS; turn++) {
       try {
+<<<<<<< Updated upstream
         const followUpRes = await fetch("/api/generate-followup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -85,6 +164,17 @@ export function CollectResponses() {
         if (!followUpRes.ok) break;
         const { followUp } = await followUpRes.json();
         const modelRes = await fetch("/api/run-model", {
+||||||| Stash base
+        const turns: ConversationTurn[] = [];
+
+        // Turn 1: send the original question
+        const res1 = await fetch("/api/run-model", {
+=======
+        const turns: ConversationTurn[] = [];
+
+        // Turn 1: send the original question
+        const res1 = await fetchWithRetry("/api/run-model", {
+>>>>>>> Stashed changes
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -94,12 +184,141 @@ export function CollectResponses() {
             conversationHistory: turns,
           }),
         });
+<<<<<<< Updated upstream
         if (!modelRes.ok) break;
         const { response: followUpAnswer } = await modelRes.json();
         turns.push({ role: "user", content: followUp });
         turns.push({ role: "assistant", content: followUpAnswer });
+||||||| Stash base
+
+        if (!res1.ok) throw new Error("Model request failed");
+        const { response: answer1 } = await res1.json();
+        turns.push({ role: "user", content: q.text });
+        turns.push({ role: "assistant", content: answer1 });
+
+        // Turns 2-3: generate follow-ups via the judge
+        for (let turn = 1; turn < MAX_TURNS; turn++) {
+          try {
+            const followUpRes = await fetch("/api/generate-followup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                question: q.text,
+                response: answer1,
+                failureMode: modeLabel,
+              }),
+            });
+
+            if (!followUpRes.ok) break;
+            const { followUp } = await followUpRes.json();
+
+            const modelRes = await fetch("/api/run-model", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                provider: state.modelConfig!.provider,
+                modelId: state.modelConfig!.modelId,
+                question: followUp,
+                conversationHistory: turns,
+              }),
+            });
+
+            if (!modelRes.ok) break;
+            const { response: followUpAnswer } = await modelRes.json();
+            turns.push({ role: "user", content: followUp });
+            turns.push({ role: "assistant", content: followUpAnswer });
+          } catch {
+            break; // follow-up failed, continue with what we have
+          }
+        }
+
+        const modelResponse: ModelResponse = {
+          questionId: q.id,
+          question: q.text,
+          failureMode: q.failureMode,
+          turns,
+        };
+        responses.push(modelResponse);
+        dispatch({ type: "ADD_RESPONSE", response: modelResponse });
+        setCompletedCount((c) => c + 1);
+=======
+
+        if (!res1.ok) throw new Error("Model request failed");
+        const { response: answer1 } = await res1.json();
+        turns.push({ role: "user", content: q.text });
+        turns.push({ role: "assistant", content: answer1 });
+
+        // Turns 2-3: generate follow-ups via the judge (these remain sequential per conversation)
+        for (let turn = 1; turn < MAX_TURNS; turn++) {
+          try {
+            const followUpRes = await fetchWithRetry("/api/generate-followup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                question: q.text,
+                response: answer1,
+                failureMode: modeLabel,
+              }),
+            });
+
+            if (!followUpRes.ok) break;
+            const { followUp } = await followUpRes.json();
+
+            const modelRes = await fetchWithRetry("/api/run-model", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                provider: state.modelConfig!.provider,
+                modelId: state.modelConfig!.modelId,
+                question: followUp,
+                conversationHistory: turns,
+              }),
+            });
+
+            if (!modelRes.ok) break;
+            const { response: followUpAnswer } = await modelRes.json();
+            turns.push({ role: "user", content: followUp });
+            turns.push({ role: "assistant", content: followUpAnswer });
+          } catch {
+            break; // follow-up failed, continue with what we have
+          }
+        }
+
+        const modelResponse: ModelResponse = {
+          questionId: q.id,
+          question: q.text,
+          failureMode: q.failureMode,
+          turns,
+        };
+
+        // Update state immediately as each question completes
+        dispatch({ type: "ADD_RESPONSE", response: modelResponse });
+        setCompletedCount((c) => c + 1);
+
+        return modelResponse;
+>>>>>>> Stashed changes
       } catch {
+<<<<<<< Updated upstream
         break;
+||||||| Stash base
+        setFailedCount((c) => c + 1);
+=======
+        setFailedCount((c) => c + 1);
+        return null;
+      }
+    }
+
+    // Process questions in batches
+    for (let i = 0; i < enabledQuestions.length; i += BATCH_SIZE) {
+      const batch = enabledQuestions.slice(i, i + BATCH_SIZE);
+
+      // Process batch in parallel
+      await Promise.all(batch.map(processQuestion));
+
+      // Add delay between batches (except after the last batch)
+      if (i + BATCH_SIZE < enabledQuestions.length) {
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY));
+>>>>>>> Stashed changes
       }
     }
 
