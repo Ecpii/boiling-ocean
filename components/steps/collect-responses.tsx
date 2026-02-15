@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useWorkflow } from "@/lib/workflow-context";
 import {
   WorkflowStep,
-  FAILURE_MODES,
   type ConversationTurn,
   type ModelResponse,
 } from "@/lib/types";
@@ -50,7 +49,7 @@ export function CollectResponses() {
     for (let i = 0; i < enabledQuestions.length; i++) {
       const q = enabledQuestions[i];
       const modeLabel =
-        FAILURE_MODES.find((fm) => fm.id === q.failureMode)?.label ??
+        state.activeFailureModes.find((fm) => fm.id === q.failureMode)?.label ??
         q.failureMode;
       setCurrentQuestion(q.text);
       setCurrentMode(modeLabel);
@@ -153,7 +152,7 @@ export function CollectResponses() {
             </h2>
             <p className="text-muted-foreground mt-1">
               Testing your model with {totalQuestions} questions across{" "}
-              {FAILURE_MODES.length} failure modes
+              {state.activeFailureModes.length} failure modes
             </p>
           </div>
 

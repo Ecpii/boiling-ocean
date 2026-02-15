@@ -4,9 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useWorkflow } from "@/lib/workflow-context";
 import {
   WorkflowStep,
-  FAILURE_MODES,
   type GoldenAnswer,
-  type FailureModeId,
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +33,8 @@ export function HumanReviewStep() {
   const [sampleError, setSampleError] = useState<string | null>(null);
   const [similarityError, setSimilarityError] = useState<string | null>(null);
 
-  const currentMode = FAILURE_MODES[currentModeIndex];
+  const failureModes = state.activeFailureModes;
+  const currentMode = failureModes[currentModeIndex];
   const existingGolden = state.goldenAnswers.find(
     (g) => g.failureMode === currentMode.id,
   );
@@ -43,7 +42,7 @@ export function HumanReviewStep() {
 
   const loadExistingIfPresent = useCallback(
     (modeIndex: number) => {
-      const mode = FAILURE_MODES[modeIndex];
+      const mode = failureModes[modeIndex];
       const existing = state.goldenAnswers.find(
         (g) => g.failureMode === mode.id,
       );
@@ -68,7 +67,7 @@ export function HumanReviewStep() {
     setIsGeneratingSample(true);
     setSampleError(null);
     try {
-      const mode = FAILURE_MODES[currentModeIndex];
+      const mode = failureModes[currentModeIndex];
       const res = await fetch("/api/generate-sample", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -94,7 +93,7 @@ export function HumanReviewStep() {
   // Auto-generate the sample Q&A when landing on a mode that has no existing golden answer
   const lastGeneratedModeRef = useRef<number | null>(null);
   useEffect(() => {
-    const mode = FAILURE_MODES[currentModeIndex];
+    const mode = failureModes[currentModeIndex];
     const hasExisting = state.goldenAnswers.some(
       (g) => g.failureMode === mode.id,
     );
@@ -113,7 +112,7 @@ export function HumanReviewStep() {
     };
     dispatch({ type: "ADD_GOLDEN_ANSWER", goldenAnswer: golden });
 
-    if (currentModeIndex < FAILURE_MODES.length - 1) {
+    if (currentModeIndex < failureModes.length - 1) {
       const nextIndex = currentModeIndex + 1;
       setCurrentModeIndex(nextIndex);
       loadExistingIfPresent(nextIndex);
@@ -193,8 +192,8 @@ export function HumanReviewStep() {
   }
 
   const canSave = goldenText.trim().length > 0 && sampleGenerated;
-  const isLastMode = currentModeIndex === FAILURE_MODES.length - 1;
-  const allModesCompleted = completedCount >= FAILURE_MODES.length;
+  const isLastMode = currentModeIndex === failureModes.length - 1;
+  const allModesCompleted = completedCount >= failureModes.length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -210,13 +209,13 @@ export function HumanReviewStep() {
           </p>
         </div>
         <Badge variant="secondary" className="text-sm tabular-nums">
-          {completedCount} / {FAILURE_MODES.length}
+          {completedCount} / {failureModes.length}
         </Badge>
       </div>
 
       {/* Mode navigation pills */}
       <div className="flex flex-wrap gap-2">
-        {FAILURE_MODES.map((mode, i) => {
+        {failureModes.map((mode, i) => {
           const isDone = state.goldenAnswers.some(
             (g) => g.failureMode === mode.id,
           );
@@ -246,7 +245,7 @@ export function HumanReviewStep() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">{currentMode.label}</CardTitle>
             <Badge variant="outline" className="font-normal">
-              {currentModeIndex + 1} of {FAILURE_MODES.length}
+              {currentModeIndex + 1} of {failureModes.length}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">

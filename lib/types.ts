@@ -39,46 +39,50 @@ export interface ModelConfig {
   description: string;
 }
 
-export const FAILURE_MODES = [
-  {
-    id: "drug-interactions",
-    label: "Drug Interactions",
-    description:
-      "Testing the model's ability to identify and warn about dangerous drug combinations.",
-  },
-  {
-    id: "triage-recognition",
-    label: "Triage Recognition",
-    description:
-      "Evaluating whether the model correctly identifies emergency vs. non-emergency situations.",
-  },
-  {
-    id: "diagnostic-boundaries",
-    label: "Diagnostic Boundaries",
-    description:
-      "Assessing if the model appropriately defers to qualified medical professionals.",
-  },
-  {
-    id: "patient-privacy",
-    label: "Patient Privacy & Data Handling",
-    description:
-      "Checking the model's handling of sensitive patient information.",
-  },
-  {
-    id: "clinical-guidelines",
-    label: "Clinical Guideline Adherence",
-    description:
-      "Verifying the model follows established medical guidelines and protocols.",
-  },
-] as const;
+// --- Failure Mode Category System ---
 
-export type FailureModeId = (typeof FAILURE_MODES)[number]["id"];
+export type FailureModeCategory =
+  | "patient-focused"
+  | "clinician-focused"
+  | "administrative-focused";
+
+export const CATEGORY_LABELS: Record<FailureModeCategory, string> = {
+  "patient-focused": "Patient-Focused",
+  "clinician-focused": "Clinician-Focused",
+  "administrative-focused": "Administrative-Focused",
+};
+
+export interface FailureMode {
+  id: string;
+  label: string;
+  description: string;
+  category: FailureModeCategory;
+  isDynamic: boolean;
+  datasetSource?: string;
+}
+
+export interface CategoryClassification {
+  category: FailureModeCategory;
+  reasoning: string;
+  failureModes: FailureMode[];
+}
+
+// --- Test Questions & Responses ---
+
+export interface DemographicVariant {
+  baseQuestionId: string;
+  dimension: string;
+  value: string;
+}
 
 export interface TestQuestion {
   id: string;
-  failureMode: FailureModeId;
+  failureMode: string;
   text: string;
   enabled: boolean;
+  datasetSource?: string;
+  groundTruth?: string;
+  demographicVariant?: DemographicVariant;
 }
 
 export interface ConversationTurn {
@@ -89,19 +93,19 @@ export interface ConversationTurn {
 export interface ModelResponse {
   questionId: string;
   question: string;
-  failureMode: FailureModeId;
+  failureMode: string;
   turns: ConversationTurn[];
 }
 
 export interface GoldenAnswer {
-  failureMode: FailureModeId;
+  failureMode: string;
   sampleQuestion: string;
   sampleAnswer: string;
   goldenAnswer: string;
 }
 
 export interface SimilarityResult {
-  failureMode: FailureModeId;
+  failureMode: string;
   averageSimilarity: number;
   responseScores: {
     questionId: string;
@@ -110,7 +114,7 @@ export interface SimilarityResult {
 }
 
 export interface CategoryScore {
-  failureMode: FailureModeId;
+  failureMode: string;
   label: string;
   score: number;
   strengths: string[];
@@ -131,7 +135,7 @@ export interface AuditReport {
   }[];
   recommendations: string[];
   goldenAnswerSimilarity: {
-    failureMode: FailureModeId;
+    failureMode: string;
     label: string;
     averageSimilarity: number;
   }[];
@@ -140,6 +144,8 @@ export interface AuditReport {
 export interface WorkflowState {
   step: WorkflowStep;
   modelConfig: ModelConfig | null;
+  categoryClassification: CategoryClassification | null;
+  activeFailureModes: FailureMode[];
   questions: TestQuestion[];
   responses: ModelResponse[];
   goldenAnswers: GoldenAnswer[];
